@@ -4,6 +4,10 @@ Paste YouTube links, choose the format, quality, file name, a clip or chapters, 
 
 **Live page:** https://video-downloader.pages.dev/ · listed on [vinothhaldorai.com/apps](https://vinothhaldorai.com/apps/)
 
+![Video Downloader in direct mode: a video with its real formats and sizes, the helper connected, and a finished download](screenshot.png)
+
+<sub>Direct mode, with the helper running. The video shown is <a href="https://peach.blender.org/">Big Buck Bunny</a>, © Blender Foundation, under CC BY 3.0.</sub>
+
 ## Why there is a helper
 
 A web page cannot download from YouTube. YouTube refuses requests from other sites (its player API answers them with a 403), and video and audio arrive as separate, scrambled streams that need [yt-dlp](https://github.com/yt-dlp/yt-dlp) to unlock. So the page does everything you see, and yt-dlp does the fetching, on your own computer.
