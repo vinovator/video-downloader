@@ -21,9 +21,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.0.0';
+const VERSION = '1.0.1';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const LIVE_PAGE = 'https://video-downloader.pages.dev/';
+const LIVE_PAGE = 'https://vinovator.github.io/video-downloader/';
+const PAGE_MARKER = '<meta name="app" content="video-downloader">';
 const DEFAULT_PORT = 38917;
 
 const USAGE = `Usage: node helper.mjs [options]
@@ -500,13 +501,16 @@ async function pageHtml() {
     const local = path.join(HERE, 'index.html');
     if (existsSync(local)) {
         const html = readFileSync(local, 'utf8');
-        if (html.includes('<meta name="app" content="video-downloader">')) return html;
+        if (html.includes(PAGE_MARKER)) return html;
     }
     if (cachedPage) return cachedPage;
     try {
         const r = await fetch(LIVE_PAGE, { signal: AbortSignal.timeout(15000) });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return (cachedPage = await r.text());
+        const html = await r.text();
+        // Checked here too: whatever is served runs on this origin and can read the key.
+        if (!html.includes(PAGE_MARKER)) throw new Error('that address did not serve the Video Downloader page');
+        return (cachedPage = html);
     } catch (e) {
         return `<!doctype html><meta charset="utf-8"><title>Video Downloader</title>
 <body style="font:16px/1.5 system-ui,sans-serif;max-width:40rem;margin:4rem auto;padding:0 1rem">

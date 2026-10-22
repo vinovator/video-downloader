@@ -2,7 +2,7 @@
 
 Paste YouTube links, choose the format, quality, file name, a clip or chapters, and cover art, and save them to your computer.
 
-**Live page:** https://video-downloader.pages.dev/ · listed on [vinothhaldorai.com/apps](https://vinothhaldorai.com/apps/)
+**Live page:** https://vinovator.github.io/video-downloader/ · listed on [vinothhaldorai.com/apps](https://vinothhaldorai.com/apps/)
 
 ![Video Downloader in direct mode: a video with its real formats and sizes, the helper connected, and a finished download](screenshot.png)
 
@@ -73,7 +73,7 @@ The page's `buildArgs()` is the only place options become yt-dlp flags. When you
 
 ## Deployment
 
-Cloudflare Pages serves this repo as committed, with no build command and `/` as the output directory. CI runs the self-test.
+GitHub Pages serves this repo as committed, from the root of `main`. CI runs the self-test.
 
 ## Licence
 
