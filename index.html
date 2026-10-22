@@ -1,0 +1,2456 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- helper.mjs serves this page only when it carries this marker. -->
+    <meta name="app" content="video-downloader">
+    <!-- Brand icons, mirrored byte for byte from vinothhaldorai.com/public, so this
+         tab reads as part of the same body of work as the site's Apps page. -->
+    <link rel="canonical" href="https://video-downloader.pages.dev/">
+    <link rel="icon" href="favicon.ico" sizes="32x32">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <!-- connect-src: oEmbed for titles, and 'self' for the helper when it serves
+         this page from 127.0.0.1. Nothing else is fetched. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.ytimg.com; connect-src 'self' https://www.youtube.com; object-src 'none'; base-uri 'self'; form-action 'none'">
+    <title>Video Downloader | Vinoth Haldorai</title>
+    <meta name="description" content="Paste YouTube links, choose the format, quality, file name, clip or chapters and cover art, and save them to your computer with yt-dlp.">
+    <meta name="author" content="Vinoth Haldorai">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Vinoth Haldorai">
+    <meta property="og:url" content="https://video-downloader.pages.dev/">
+    <meta property="og:title" content="Video Downloader | Vinoth Haldorai">
+    <meta property="og:description" content="Paste YouTube links, choose the format, quality, file name, clip or chapters and cover art, and save them to your computer with yt-dlp.">
+    <meta name="theme-color" content="#e11d48">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #e11d48;
+            --primary-dark: #be123c;
+            --primary-soft: #fff1f2;
+            --primary-ring: rgba(225, 29, 72, 0.18);
+            --ribbon-a: #f43f5e;
+            --ribbon-b: #be123c;
+            --bg-body: #F3F4F6;
+            --bg-surface: #ffffff;
+            --bg-subtle: #F9FAFB;
+            --text-main: #1F2937;
+            --text-muted: #6B7280;
+            --border: #E5E7EB;
+            --border-strong: #D1D5DB;
+            --danger: #DC2626;
+            --danger-bg: #FEF2F2;
+            --danger-text: #991B1B;
+            --warn: #F59E0B;
+            --warn-bg: #FFFBEB;
+            --warn-text: #92400E;
+            --success: #10B981;
+            --success-bg: #ECFDF5;
+            --success-text: #065F46;
+            --info: #3B82F6;
+            --info-bg: #EFF6FF;
+            --info-text: #1E40AF;
+            --term-bg: #111827;
+            --term-line: #374151;
+            --term-text: #E5E7EB;
+            --term-muted: #9CA3AF;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --radius: 12px;
+            --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 96px 20px 20px;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--bg-surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            white-space: nowrap;
+        }
+
+        [hidden] { display: none !important; }
+
+        /* ====================== Top ribbon (branded header) ====================== */
+        .top-ribbon {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 76px;
+            background: linear-gradient(135deg, var(--ribbon-a) 0%, var(--ribbon-b) 100%);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 0 24px;
+            z-index: 100;
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06), 0 4px 18px rgba(225, 29, 72, 0.22);
+        }
+
+        .ribbon-brand {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+            line-height: 1.15;
+        }
+
+        .ribbon-name {
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: -0.018em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .ribbon-tag {
+            font-size: 0.78rem;
+            color: rgba(255, 255, 255, 0.88);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .ribbon-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 32px;
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.9);
+            text-decoration: none;
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.34);
+            background: rgba(255, 255, 255, 0.08);
+            white-space: nowrap;
+            flex-shrink: 0;
+            transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+        }
+
+        .ribbon-back:hover {
+            background: rgba(255, 255, 255, 0.18);
+            color: #ffffff;
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .ribbon-back:focus-visible {
+            outline: 2px solid #ffffff;
+            outline-offset: 2px;
+        }
+
+        .ribbon-back svg { flex-shrink: 0; transition: transform 0.15s; }
+        .ribbon-back:hover svg { transform: translateX(-2px); }
+
+        /* ====================== Layout ======================
+           Options on the left; links and the download on the right. On a phone the
+           order becomes links, then options, then the download. */
+        .main-content {
+            display: grid;
+            grid-template-columns: 360px minmax(0, 1fr);
+            grid-template-areas:
+                "opts links"
+                "opts out";
+            grid-template-rows: auto 1fr;
+        }
+
+        .panel-links { grid-area: links; padding: 28px 34px 10px; min-width: 0; }
+        .panel-out { grid-area: out; padding: 14px 34px 32px; min-width: 0; }
+
+        .panel-opts {
+            grid-area: opts;
+            background: var(--bg-subtle);
+            border-right: 1px solid var(--border);
+            padding: 24px 22px 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        @media (max-width: 900px) {
+            .main-content {
+                grid-template-columns: minmax(0, 1fr);
+                grid-template-areas: "links" "opts" "out";
+                grid-template-rows: auto;
+            }
+
+            .panel-opts {
+                border-right: none;
+                border-top: 1px solid var(--border);
+                border-bottom: 1px solid var(--border);
+            }
+
+            .panel-links { padding: 24px 22px 18px; }
+            .panel-out { padding: 22px 22px 28px; }
+        }
+
+        @media (max-width: 560px) {
+            body { padding: 88px 10px 12px; }
+            .top-ribbon { padding: 0 16px; gap: 12px; height: 72px; }
+            .ribbon-name { font-size: 1.2rem; }
+            .ribbon-tag { font-size: 0.72rem; }
+            .ribbon-back span { display: none; }
+            .ribbon-back { padding: 7px 9px; min-width: 44px; min-height: 44px; justify-content: center; }
+            .panel-links, .panel-opts, .panel-out { padding-left: 16px; padding-right: 16px; }
+        }
+
+        .section-heading {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 12px;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .section-heading h2 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+
+        .summary {
+            font-size: 0.84rem;
+            color: var(--text-muted);
+        }
+
+        /* ====================== Form controls ====================== */
+        fieldset { border: 0; min-width: 0; }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        label,
+        legend,
+        .label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-main);
+            letter-spacing: 0.01em;
+        }
+
+        legend { margin-bottom: 6px; }
+
+        .hint {
+            font-size: 0.74rem;
+            color: var(--text-muted);
+            font-weight: 400;
+            line-height: 1.4;
+            letter-spacing: 0;
+        }
+
+        .hint:empty { display: none; }
+
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 8px 11px;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            font-family: inherit;
+            font-size: 0.88rem;
+            color: var(--text-main);
+            background-color: white;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        select {
+            appearance: none;
+            padding-right: 32px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 14px;
+            cursor: pointer;
+        }
+
+        input[type="text"]:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-ring);
+        }
+
+        input.invalid {
+            border-color: var(--danger);
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+        }
+
+        .check,
+        .radio {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            font-size: 0.84rem;
+            font-weight: 500;
+            line-height: 1.35;
+            cursor: pointer;
+        }
+
+        .check input,
+        .radio input {
+            margin-top: 2px;
+            flex-shrink: 0;
+            width: 15px;
+            height: 15px;
+            accent-color: var(--primary);
+            cursor: inherit;
+        }
+
+        .is-disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .stack { display: flex; flex-direction: column; gap: 8px; }
+
+        .sidebar-divider {
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* Segmented control, after pdf-play's tabs */
+        .seg {
+            display: flex;
+            gap: 4px;
+            background: var(--border);
+            padding: 4px;
+            border-radius: 10px;
+        }
+
+        .seg label { flex: 1; position: relative; cursor: pointer; }
+
+        .seg input {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .seg span {
+            display: block;
+            text-align: center;
+            padding: 7px 4px;
+            border-radius: 7px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            transition: color 0.15s, background-color 0.15s;
+        }
+
+        .seg input:checked + span {
+            background: white;
+            color: var(--primary-dark);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .seg label:hover input:not(:checked) + span { color: var(--text-main); }
+        .seg input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+        .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+        .chip {
+            padding: 5px 11px;
+            border-radius: 999px;
+            border: 1px solid var(--border-strong);
+            background: white;
+            font-family: inherit;
+            font-size: 0.76rem;
+            font-weight: 600;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+        }
+
+        .chip:hover { border-color: var(--primary); color: var(--primary-dark); }
+
+        .chip.is-active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        /* Quality tiers: one row per resolution, sizes when the helper knows them */
+        .tiers { display: flex; flex-direction: column; gap: 6px; }
+
+        .tier {
+            display: grid;
+            grid-template-columns: 16px minmax(0, 1fr) auto;
+            grid-template-areas: "radio name size" "radio sub size";
+            align-items: center;
+            column-gap: 9px;
+            padding: 8px 11px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: border-color 0.15s, background-color 0.15s;
+        }
+
+        .tier input { grid-area: radio; width: 15px; height: 15px; accent-color: var(--primary); cursor: inherit; }
+        .tier .t-name { grid-area: name; font-size: 0.84rem; }
+        .tier .t-sub { grid-area: sub; font-size: 0.72rem; color: var(--text-muted); font-weight: 400; }
+        .tier .t-size { grid-area: size; font-size: 0.78rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+        .tier:hover:not(.is-disabled) { border-color: var(--border-strong); }
+        .tier:has(input:checked) { border-color: var(--primary); background: var(--primary-soft); }
+
+        .sub {
+            margin: 2px 0 6px 23px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .range { display: flex; gap: 12px; flex-wrap: wrap; }
+
+        .range label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+
+        .range input[type="text"] { width: 88px; font-variant-numeric: tabular-nums; }
+
+        .ch-tools { font-size: 0.78rem; color: var(--text-muted); }
+
+        .ch-list {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            max-height: 264px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .ch { font-size: 0.8rem; align-items: baseline; }
+        .ch input { margin-top: 0; align-self: center; }
+        .ch-n { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+        .ch-title { flex: 1; min-width: 0; }
+        .ch-time { color: var(--text-muted); font-size: 0.72rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+        .tokens { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+
+        .token {
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px dashed var(--border-strong);
+            background: white;
+            font-family: inherit;
+            font-size: 0.72rem;
+            font-weight: 500;
+            color: var(--text-main);
+            cursor: pointer;
+        }
+
+        .token:hover:not(:disabled) { border-color: var(--primary); color: var(--primary-dark); }
+        .token:disabled { opacity: 0.45; cursor: not-allowed; }
+
+        .folder-row {
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            background: white;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        .folder-row:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-ring); }
+        .folder-row input[type="text"] { border: 0; box-shadow: none; background: transparent; }
+
+        .folder-base {
+            max-width: 62%;
+            padding-left: 11px;
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .advanced {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: white;
+        }
+
+        .advanced summary {
+            padding: 10px 12px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .advanced[open] summary { border-bottom: 1px solid var(--border); }
+        .advanced > .field { padding: 12px 12px 0; }
+        .advanced > .field:last-child { padding-bottom: 14px; }
+
+        /* ====================== Links ====================== */
+        .linkbox {
+            border: 1.5px dashed var(--border-strong);
+            border-radius: 10px;
+            background: white;
+            padding: 10px 12px;
+            transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
+        }
+
+        .linkbox:focus-within {
+            border-style: solid;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-ring);
+        }
+
+        .linkbox.drag-over {
+            border-style: solid;
+            border-color: var(--primary);
+            background: var(--primary-soft);
+        }
+
+        .linkbox textarea {
+            display: block;
+            width: 100%;
+            min-height: 72px;
+            resize: vertical;
+            border: 0;
+            outline: 0;
+            background: transparent;
+            font-family: var(--mono);
+            font-size: 0.86rem;
+            line-height: 1.55;
+            color: var(--text-main);
+        }
+
+        .linkbox-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border);
+        }
+
+        .linkbox-bar .hint { flex: 1; min-width: 12rem; }
+
+        .videos {
+            list-style: none;
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .video {
+            display: grid;
+            grid-template-columns: 120px minmax(0, 1fr) auto;
+            gap: 12px;
+            align-items: center;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: white;
+        }
+
+        .thumb {
+            display: block;
+            width: 120px;
+            height: 68px;
+            object-fit: cover;
+            border-radius: 6px;
+            background: var(--bg-subtle);
+        }
+
+        .v-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .v-sub, .v-state { font-size: 0.76rem; color: var(--text-muted); margin-top: 2px; }
+        .v-state:empty { display: none; }
+        .v-state.is-error { color: var(--danger-text); }
+        .v-state.is-warn { color: var(--warn-text); }
+        .v-state .btn-link { margin-left: 6px; font-size: 0.76rem; }
+        .v-hint { color: var(--text-main); }
+
+        .v-state.is-busy::before,
+        .busy::before {
+            content: "";
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            margin-right: 6px;
+            border: 2px solid var(--border-strong);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            vertical-align: -1px;
+            animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 560px) {
+            .video { grid-template-columns: 88px minmax(0, 1fr) auto; gap: 10px; }
+            .thumb { width: 88px; height: 50px; }
+        }
+
+        /* ====================== Buttons ====================== */
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 600;
+            width: 100%;
+            transition: all 0.18s ease;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn:hover:not(:disabled) {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+        .btn-small {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 11px;
+            border: 1px solid var(--border-strong);
+            border-radius: 7px;
+            background: white;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.78rem;
+            font-weight: 600;
+            line-height: 1.3;
+            cursor: pointer;
+            transition: background-color 0.15s, border-color 0.15s;
+        }
+
+        .btn-small:hover { border-color: var(--text-muted); background: var(--bg-subtle); }
+
+        .btn-link {
+            background: none;
+            border: 0;
+            padding: 0;
+            color: var(--primary-dark);
+            font-family: inherit;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-link:hover { text-decoration: underline; }
+
+        .btn-icon {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            width: 32px;
+            height: 32px;
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-family: inherit;
+            transition: all 0.15s;
+        }
+
+        .btn-icon:hover { background: var(--danger-bg); color: var(--danger-text); border-color: var(--danger); }
+
+        button:focus-visible,
+        .btn-small:focus-visible,
+        summary:focus-visible,
+        a:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
+
+        /* ====================== Alerts ====================== */
+        .alert {
+            padding: 11px 14px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            border-left: 4px solid transparent;
+            font-size: 0.86rem;
+            line-height: 1.5;
+        }
+
+        .alert-info { background: var(--info-bg); border-color: var(--info); color: var(--info-text); }
+        .alert-warn { background: var(--warn-bg); border-color: var(--warn); color: var(--warn-text); }
+        .alert-error { background: var(--danger-bg); border-color: var(--danger); color: var(--danger-text); }
+        .alert-success { background: var(--success-bg); border-color: var(--success); color: var(--success-text); }
+        .alert .tools { font-family: var(--mono); font-size: 0.74rem; opacity: 0.85; margin-top: 2px; }
+
+        .setup details { margin-top: 8px; }
+        .setup summary { cursor: pointer; font-weight: 600; }
+        .setup ol { margin: 8px 0 2px; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+        .setup code { background: rgba(255, 255, 255, 0.75); }
+        .setup a { color: inherit; font-weight: 600; }
+        .setup .os { display: block; }
+
+        code {
+            font-family: var(--mono);
+            font-size: 0.85em;
+            background: rgba(0, 0, 0, 0.05);
+            padding: 1px 5px;
+            border-radius: 4px;
+            word-break: break-word;
+        }
+
+        kbd {
+            font-family: var(--mono);
+            font-size: 0.78em;
+            background: white;
+            border: 1px solid var(--border);
+            border-bottom-width: 2px;
+            padding: 1px 5px;
+            border-radius: 4px;
+        }
+
+        /* ====================== Output ====================== */
+        .out-files {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 14px;
+        }
+
+        .out-files:empty { display: none; }
+
+        .out-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 12px;
+            padding: 9px 12px;
+            background: var(--bg-subtle);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .out-name {
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            word-break: break-word;
+        }
+
+        .out-size { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+        .out-more { font-size: 0.78rem; color: var(--text-muted); padding-left: 12px; }
+
+        .cmd {
+            border-radius: 10px;
+            background: var(--term-bg);
+            color: var(--term-text);
+            margin-bottom: 4px;
+        }
+
+        .cmd summary {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            padding: 10px 14px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            list-style: none;
+        }
+
+        .cmd summary::-webkit-details-marker { display: none; }
+
+        .cmd summary::before {
+            content: "\25B8";
+            display: inline-block;
+            color: var(--term-muted);
+            transition: transform 0.15s;
+        }
+
+        .cmd[open] summary::before { transform: rotate(90deg); }
+        .cmd-shell { font-weight: 400; font-size: 0.74rem; color: var(--term-muted); }
+        .cmd-body { border-top: 1px solid var(--term-line); }
+
+        /* The button gets its own row, so long lines never scroll underneath it. */
+        .cmd-bar {
+            display: flex;
+            justify-content: flex-end;
+            padding: 8px 8px 0;
+        }
+
+        .cmd pre {
+            margin: 0;
+            padding: 4px 16px 14px;
+            overflow-x: auto;
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            line-height: 1.65;
+            white-space: pre;
+            tab-size: 2;
+        }
+
+        .cmd .btn-small {
+            background: #1F2937;
+            color: #F9FAFB;
+            border-color: #4B5563;
+        }
+
+        .cmd .btn-small:hover { background: #374151; }
+
+        .action-panel {
+            margin-top: 20px;
+            padding-top: 18px;
+            border-top: 1px solid var(--border);
+        }
+
+        .action-status {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            min-height: 1.3em;
+        }
+
+        .rights {
+            margin-top: 12px;
+            font-size: 0.74rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        /* ====================== Downloads ====================== */
+        .jobs-wrap { margin-top: 26px; }
+        .jobs { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+
+        .job {
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: white;
+        }
+
+        .job.is-done { border-color: #A7F3D0; }
+        .job.is-error { border-color: #FECACA; background: var(--danger-bg); }
+        .job.is-cancelled { opacity: 0.7; }
+
+        .job-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 12px;
+        }
+
+        .job-title {
+            font-weight: 600;
+            font-size: 0.88rem;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .job-stage { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; }
+        .job.is-done .job-stage { color: var(--success-text); font-weight: 600; }
+        .job.is-error .job-stage { color: var(--danger-text); font-weight: 600; }
+
+        .bar {
+            height: 6px;
+            border-radius: 999px;
+            background: var(--border);
+            overflow: hidden;
+            margin: 8px 0 6px;
+        }
+
+        .bar span {
+            display: block;
+            height: 100%;
+            width: 0;
+            background: var(--primary);
+            border-radius: inherit;
+            transition: width 0.4s ease;
+        }
+
+        .bar.is-indeterminate span {
+            width: 35% !important;
+            animation: slide 1.15s ease-in-out infinite;
+        }
+
+        @keyframes slide {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(290%); }
+        }
+
+        .job-sub { font-size: 0.74rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+        .job-sub:empty, .job-files:empty, .job-error:empty { display: none; }
+        .job-files { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
+        .job-folder { font-size: 0.74rem; color: var(--text-muted); }
+
+        .job-file {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            font-family: var(--mono);
+            font-size: 0.76rem;
+        }
+
+        .job-file span:first-child { word-break: break-word; }
+        .job-file span:last-child { color: var(--text-muted); white-space: nowrap; }
+        .job-error { margin-top: 6px; font-size: 0.82rem; color: var(--danger-text); }
+        .job-hint { display: block; margin-top: 4px; color: var(--text-main); }
+        .job-actions { display: flex; gap: 8px; margin-top: 8px; }
+        .job-actions:not(:has(button:not([hidden]))) { display: none; }
+
+        /* ====================== Footer ====================== */
+        .footer {
+            padding: 16px 28px;
+            background: var(--bg-subtle);
+            border-top: 1px solid var(--border);
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .footer a { color: var(--primary-dark); text-decoration: none; font-weight: 500; }
+        .footer a:hover { text-decoration: underline; }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before { transition: none !important; animation-duration: 3s !important; }
+        }
+    </style>
+</head>
+
+<body>
+    <header class="top-ribbon" role="banner">
+        <div class="ribbon-brand">
+            <span class="ribbon-name">Video Downloader</span>
+            <span class="ribbon-tag">Save YouTube videos, or just their audio, with the options you choose.</span>
+        </div>
+        <a href="https://vinothhaldorai.com/apps/" class="ribbon-back" title="Back to Vinoth Haldorai's apps">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            <span>Apps</span>
+        </a>
+    </header>
+
+    <div class="container">
+        <div class="main-content">
+            <section class="panel-links" aria-labelledby="h-links">
+                <div class="section-heading">
+                    <h2 id="h-links">YouTube links</h2>
+                    <span class="summary" id="links-summary"></span>
+                </div>
+                <div class="linkbox" id="linkbox">
+                    <label for="links" class="sr-only">YouTube links, one per line</label>
+                    <textarea id="links" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off"
+                        placeholder="Paste a YouTube link, or several, one per line"></textarea>
+                    <div class="linkbox-bar">
+                        <button type="button" class="btn-small" id="btn-paste">Paste</button>
+                        <label class="btn-small" for="txt-file">Open a .txt</label>
+                        <input type="file" id="txt-file" accept=".txt,text/plain" hidden>
+                        <span class="hint">Watch, Shorts, live and youtu.be links all work. You can also drop links or a .txt file here.</span>
+                        <button type="button" class="btn-link" id="btn-clear" hidden>Clear</button>
+                    </div>
+                </div>
+                <div id="link-alerts"></div>
+                <ul class="videos" id="videos"></ul>
+            </section>
+
+            <aside class="panel-opts" aria-label="Download options">
+                <div class="field">
+                    <span class="label" id="l-presets">Presets</span>
+                    <div class="chips" role="group" aria-labelledby="l-presets">
+                        <button type="button" class="chip" data-preset="mp4">Best MP4</button>
+                        <button type="button" class="chip" data-preset="mkv">Best quality MKV</button>
+                        <button type="button" class="chip" data-preset="small">Small 720p</button>
+                        <button type="button" class="chip" data-preset="m4a">M4A + cover art</button>
+                        <button type="button" class="chip" data-preset="mp3">MP3 320 + cover art</button>
+                    </div>
+                </div>
+
+                <div class="sidebar-divider"></div>
+
+                <fieldset class="field">
+                    <legend>What to save</legend>
+                    <div class="seg">
+                        <label><input type="radio" name="mode" value="av"><span>Video + audio</span></label>
+                        <label><input type="radio" name="mode" value="audio"><span>Audio only</span></label>
+                        <label><input type="radio" name="mode" value="video"><span>Video only</span></label>
+                    </div>
+                </fieldset>
+
+                <div class="field">
+                    <label for="container">Format</label>
+                    <select id="container"></select>
+                    <span class="hint" id="container-hint"></span>
+                </div>
+
+                <div class="field" id="f-compat">
+                    <label class="check"><input type="checkbox" id="compat"><span>Plays everywhere (H.264 video, AAC audio)</span></label>
+                    <span class="hint">Opens in QuickTime, on iPhone, on TVs and in editors. YouTube only offers H.264 up to 1080p, so turn this off for 1440p and 4K.</span>
+                </div>
+
+                <fieldset class="field" id="f-quality">
+                    <legend>Quality</legend>
+                    <div class="tiers" id="tiers"></div>
+                </fieldset>
+
+                <div class="field" id="f-abr">
+                    <label for="abr">MP3 quality</label>
+                    <select id="abr">
+                        <option value="0">Best variable bitrate (about 245 kbps)</option>
+                        <option value="320K">320 kbps</option>
+                        <option value="192K">192 kbps</option>
+                        <option value="128K">128 kbps</option>
+                    </select>
+                </div>
+
+                <div class="sidebar-divider"></div>
+
+                <fieldset class="field stack" id="f-part">
+                    <legend>Part of the video</legend>
+                    <label class="radio"><input type="radio" name="part" value="whole"><span>The whole video</span></label>
+                    <label class="radio"><input type="radio" name="part" value="range"><span>A time range</span></label>
+                    <div class="sub" id="sub-range">
+                        <div class="range">
+                            <label>From <input type="text" id="start" inputmode="numeric" placeholder="0:00" autocomplete="off"></label>
+                            <label>to <input type="text" id="end" inputmode="numeric" placeholder="the end" autocomplete="off"></label>
+                        </div>
+                        <label class="check"><input type="checkbox" id="exact"><span>Exact cut (slower: re-encodes the edges)</span></label>
+                    </div>
+                    <label class="radio"><input type="radio" name="part" value="chapters"><span>Chosen chapters, one file each</span></label>
+                    <div class="sub" id="sub-chapters"></div>
+                    <label class="radio"><input type="radio" name="part" value="split"><span>Every chapter as its own file</span></label>
+                    <div class="sub" id="sub-split">
+                        <label class="check"><input type="checkbox" id="keep-full"><span>Keep the full video too</span></label>
+                    </div>
+                    <span class="hint" id="part-hint"></span>
+                </fieldset>
+
+                <div class="sidebar-divider"></div>
+
+                <fieldset class="field stack" id="f-meta">
+                    <legend>Metadata and cover art</legend>
+                    <label class="check"><input type="checkbox" id="m-tags"><span>Title, channel and date tags</span></label>
+                    <label class="check"><input type="checkbox" id="m-markers"><span>Chapter markers</span></label>
+                    <label class="check"><input type="checkbox" id="m-cover"><span>Thumbnail as cover art</span></label>
+                    <label class="check"><input type="checkbox" id="m-thumb"><span>Also save the thumbnail as a .jpg</span></label>
+                    <label class="check"><input type="checkbox" id="m-desc"><span>Also save the description</span></label>
+                    <span class="hint" id="meta-hint"></span>
+                </fieldset>
+
+                <div class="sidebar-divider"></div>
+
+                <div class="field">
+                    <label for="name">File name</label>
+                    <input type="text" id="name" maxlength="150" autocomplete="off" spellcheck="false">
+                    <div class="tokens" id="tokens">
+                        <span class="hint">Insert</span>
+                        <button type="button" class="token" data-token="title">Title</button>
+                        <button type="button" class="token" data-token="channel">Channel</button>
+                        <button type="button" class="token" data-token="date">Upload date</button>
+                        <button type="button" class="token" data-token="id">Video ID</button>
+                        <button type="button" class="token" data-token="res">Resolution</button>
+                    </div>
+                    <span class="hint" id="name-hint"></span>
+                </div>
+
+                <div class="field">
+                    <label for="folder" id="folder-label">Save to</label>
+                    <div class="folder-row">
+                        <span class="folder-base" id="folder-base" hidden></span>
+                        <input type="text" id="folder" autocomplete="off" spellcheck="false">
+                    </div>
+                    <span class="hint" id="folder-hint"></span>
+                </div>
+
+                <details class="advanced">
+                    <summary>Advanced</summary>
+                    <div class="field">
+                        <label for="cookies">Use my browser's YouTube sign-in</label>
+                        <select id="cookies">
+                            <option value="">No</option>
+                            <option value="chrome">Chrome</option>
+                            <option value="safari">Safari</option>
+                            <option value="firefox">Firefox</option>
+                            <option value="edge">Edge</option>
+                            <option value="brave">Brave</option>
+                        </select>
+                        <span class="hint">For age-restricted videos, or when YouTube asks you to confirm you are not a bot. On a Mac, Chrome, Edge and Brave ask for Keychain access, and Safari needs Full Disk Access for Terminal.</span>
+                    </div>
+                    <div class="field">
+                        <label for="rate">Speed limit</label>
+                        <input type="text" id="rate" placeholder="No limit" autocomplete="off" spellcheck="false">
+                        <span class="hint" id="rate-hint">Bytes per second, such as 500K or 5M.</span>
+                    </div>
+                    <div class="field">
+                        <label for="overwrite">If the file already exists</label>
+                        <select id="overwrite">
+                            <option value="">Skip it</option>
+                            <option value="1">Replace it</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="safe">File name characters</label>
+                        <select id="safe">
+                            <option value="">Keep them as they are</option>
+                            <option value="ascii">Plain ASCII, no spaces</option>
+                            <option value="windows">Safe for Windows</option>
+                        </select>
+                    </div>
+                    <div class="field" id="f-shell">
+                        <label for="shell">Command for</label>
+                        <select id="shell">
+                            <option value="posix">macOS or Linux (Terminal)</option>
+                            <option value="pwsh">Windows (PowerShell)</option>
+                        </select>
+                    </div>
+                </details>
+            </aside>
+
+            <section class="panel-out" aria-labelledby="h-out">
+                <div class="section-heading">
+                    <h2 id="h-out">Download</h2>
+                    <span class="summary" id="out-summary"></span>
+                </div>
+
+                <div id="banner"></div>
+                <div class="alert alert-info setup" id="setup" hidden>
+                    <strong>This page writes the yt-dlp command for you.</strong>
+                    Paste it into Terminal and the file is saved on your computer. To download straight from this page instead, start the helper.
+                    <details>
+                        <summary>Set up the helper, once</summary>
+                        <ol>
+                            <li>Install yt-dlp and ffmpeg.
+                                <span class="os">On a Mac: <code>brew install yt-dlp ffmpeg</code></span>
+                                <span class="os">On Windows: <code>winget install yt-dlp.yt-dlp Gyan.FFmpeg DenoLand.Deno</code></span>
+                                <span class="os">On Linux: <code>pipx install "yt-dlp[default]"</code>, then ffmpeg and deno from your package manager.</span>
+                            </li>
+                            <li><a href="helper.mjs" download="video-downloader-helper.mjs">Download the helper</a>, one small file that needs Node 18 or newer.</li>
+                            <li>Run <code id="run-line">node ~/Downloads/video-downloader-helper.mjs</code>. It opens this page from your own computer, with real formats, sizes and a Download button.</li>
+                        </ol>
+                    </details>
+                </div>
+
+                <div class="out-files" id="out-files"></div>
+
+                <div id="cmd-wrap" hidden>
+                    <details class="cmd" id="cmd-details" open>
+                        <summary><span id="cmd-title">The command</span><span class="cmd-shell" id="cmd-shell"></span></summary>
+                        <div class="cmd-body">
+                            <div class="cmd-bar"><button type="button" class="btn-small" id="btn-copy">Copy</button></div>
+                            <pre id="cmd"></pre>
+                        </div>
+                    </details>
+                </div>
+
+                <div class="action-panel">
+                    <div class="action-status" id="status" role="status" aria-live="polite"></div>
+                    <button class="btn" id="btn-go" disabled>Copy command</button>
+                    <p class="rights">Download only what you have the right to save: your own videos, Creative Commons ones, or with the owner's permission.</p>
+                </div>
+
+                <div class="jobs-wrap" id="jobs-wrap" hidden>
+                    <div class="section-heading">
+                        <h2>Downloads</h2>
+                        <button type="button" class="btn-link" id="btn-clear-jobs" hidden>Clear finished</button>
+                    </div>
+                    <ul class="jobs" id="jobs" aria-live="polite"></ul>
+                </div>
+            </section>
+        </div>
+
+        <div class="footer">
+            Runs <a href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="noopener">yt-dlp</a> and
+            <a href="https://ffmpeg.org/" target="_blank" rel="noopener">ffmpeg</a> on your own computer.
+            <kbd>Ctrl</kbd> or <kbd>&#8984;</kbd> + <kbd>Enter</kbd> runs the action.
+            <a href="https://github.com/vinovator/video-downloader" target="_blank" rel="noopener">Source</a>
+        </div>
+    </div>
+
+    <script>
+    /* ============================================================
+       Video Downloader
+       One page, two modes. Opened from the web or as a file, it previews links
+       and writes the yt-dlp command. Served by helper.mjs from 127.0.0.1, it also
+       reads the real formats and downloads through the helper.
+       ============================================================ */
+    (() => {
+        'use strict';
+
+        const $ = (id) => document.getElementById(id);
+        const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        const TITLE = document.title;
+        const IS_WIN = /Windows/i.test(navigator.userAgent);
+
+        // Builds DOM without innerHTML: titles come from YouTube and are never markup.
+        function el(tag, props, ...kids) {
+            const n = document.createElement(tag);
+            for (const [k, v] of Object.entries(props || {})) {
+                if (v === false || v == null) continue;
+                if (k === 'class') n.className = v;
+                else if (k === 'text') n.textContent = v;
+                else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+                else if (typeof v !== 'string' && k in n) n[k] = v;
+                else n.setAttribute(k, v === true ? '' : v);
+            }
+            for (const kid of kids.flat()) if (kid != null && kid !== false && kid !== '') n.append(kid);
+            return n;
+        }
+
+        const notice = (kind, ...kids) => el('div', { class: `alert alert-${kind}` }, ...kids);
+
+        // ------------------------------------------------------------ links
+
+        const ID_RE = /^[A-Za-z0-9_-]{11}$/;
+        const MAX_LINKS = 50;
+
+        // The same parser as helper.mjs; keep the two in step.
+        function videoId(input) {
+            const s = String(input ?? '').trim();
+            if (ID_RE.test(s)) return s;
+            let u;
+            try { u = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(s) ? s : 'https://' + s); } catch { return null; }
+            if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+            const host = u.hostname.toLowerCase().replace(/^(?:www|m|music)\./, '');
+            let id = null;
+            if (host === 'youtu.be') id = u.pathname.split('/')[1];
+            else if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
+                if (u.pathname === '/watch' || u.pathname === '/watch/') id = u.searchParams.get('v');
+                else id = (u.pathname.match(/^\/(?:shorts|live|embed|v|e)\/([^/]+)/) || [])[1];
+            }
+            return id && ID_RE.test(id) ? id : null;
+        }
+
+        // 90, 90s, 1m30s, 1h2m3s, 1:30 or 1:02:03 to seconds. null when empty, NaN when unreadable.
+        function parseTime(input) {
+            const s = String(input ?? '').trim().toLowerCase();
+            if (!s) return null;
+            let m;
+            if ((m = s.match(/^(\d+(?:\.\d+)?)s?$/))) return Number(m[1]);
+            if ((m = s.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+(?:\.\d+)?)s)?$/)) && (m[1] || m[2] || m[3])) {
+                return (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0);
+            }
+            if ((m = s.match(/^(?:(\d+):)?(\d{1,2}):(\d{1,2}(?:\.\d+)?)$/))) return (+m[1] || 0) * 3600 + +m[2] * 60 + +m[3];
+            return NaN;
+        }
+
+        function linkStart(raw) {
+            let u;
+            try { u = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : 'https://' + raw); } catch { return null; }
+            const t = u.searchParams.get('t') || u.searchParams.get('start') || (u.hash.match(/[#&]t=([^&]+)/) || [])[1];
+            const sec = t ? parseTime(t) : null;
+            return sec > 0 ? sec : null;
+        }
+
+        function parseLinks(text) {
+            const items = [];
+            const bad = [];
+            const seen = new Set();
+            let playlists = 0;
+            let extra = 0;
+            for (const raw of text.split(/[\s,]+/).filter(Boolean)) {
+                const id = videoId(raw);
+                if (!id) {
+                    if (/youtu/i.test(raw) && /[?&]list=/.test(raw)) playlists++;
+                    else bad.push(raw);
+                    continue;
+                }
+                if (seen.has(id)) continue;
+                seen.add(id);
+                if (items.length >= MAX_LINKS) { extra++; continue; }
+                items.push({ id, url: `https://www.youtube.com/watch?v=${id}`, start: linkStart(raw) });
+            }
+            return { items, bad, playlists, extra };
+        }
+
+        // ------------------------------------------------------------ formatting
+
+        function clock(sec) {
+            const t = Math.max(0, Math.floor(sec));
+            const h = Math.floor(t / 3600);
+            const m = Math.floor((t % 3600) / 60);
+            const s = String(t % 60).padStart(2, '0');
+            return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
+        }
+
+        // For file names, which cannot hold a colon: 1m30s, 1h02m03s.
+        function compact(sec) {
+            const t = Math.max(0, Math.floor(sec));
+            const h = Math.floor(t / 3600);
+            const m = Math.floor((t % 3600) / 60);
+            const s = String(t % 60).padStart(2, '0');
+            return h ? `${h}h${String(m).padStart(2, '0')}m${s}s` : `${m}m${s}s`;
+        }
+
+        function fmtBytes(n) {
+            if (n == null || !Number.isFinite(n)) return '';
+            if (n < 1024) return `${Math.round(n)} B`;
+            if (n < 1024 ** 2) return `${Math.round(n / 1024)} KB`;
+            if (n < 1024 ** 3) {
+                const mb = n / 1024 ** 2;
+                return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`;
+            }
+            return `${(n / 1024 ** 3).toFixed(2)} GB`;
+        }
+
+        const fmtDate = (d) => (/^\d{8}$/.test(d) ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}` : d);
+        const pad2 = (n) => String(n).padStart(2, '0');
+
+        // ------------------------------------------------------------ options
+
+        const STORE = 'video-downloader-v1';
+        const DEFAULTS = {
+            mode: 'av', vfmt: 'mp4', afmt: 'm4a', compat: true, cap: 'best', abr: '0',
+            part: 'whole', start: '', end: '', exact: false, keepFull: true,
+            tags: true, markers: true, cover: true, thumb: false, desc: false,
+            name: '', nameTouched: false, folder: '~/Downloads', sub: '',
+            cookies: '', rate: '', overwrite: false, safe: '', shell: IS_WIN ? 'pwsh' : 'posix',
+        };
+        // Choices about one particular video are not remembered between visits.
+        const TRANSIENT = ['part', 'start', 'end', 'name', 'nameTouched'];
+        const ENUMS = {
+            mode: ['av', 'audio', 'video'], vfmt: ['mp4', 'mkv', 'webm'], afmt: ['m4a', 'mp3', 'opus', 'flac', 'wav'],
+            cap: ['best', '2160', '1440', '1080', '720', '480', '360'], abr: ['0', '320K', '192K', '128K'],
+            cookies: ['', 'chrome', 'safari', 'firefox', 'edge', 'brave'], safe: ['', 'ascii', 'windows'], shell: ['posix', 'pwsh'],
+        };
+
+        const PRESETS = {
+            mp4: { mode: 'av', vfmt: 'mp4', compat: true, cap: 'best' },
+            mkv: { mode: 'av', vfmt: 'mkv', cap: 'best' },
+            small: { mode: 'av', vfmt: 'mp4', compat: true, cap: '720' },
+            m4a: { mode: 'audio', afmt: 'm4a', tags: true, cover: true },
+            mp3: { mode: 'audio', afmt: 'mp3', abr: '320K', tags: true, cover: true },
+        };
+
+        const V_FORMATS = [['mp4', 'MP4'], ['mkv', 'MKV'], ['webm', 'WebM']];
+        const A_FORMATS = [['m4a', 'M4A (AAC)'], ['mp3', 'MP3'], ['opus', 'Opus'], ['flac', 'FLAC'], ['wav', 'WAV']];
+        const FORMAT_HINTS = {
+            mp4: 'Plays almost anywhere.',
+            mkv: 'Best quality at every resolution. Plays in VLC, IINA and on most TVs, but not in QuickTime.',
+            webm: 'VP9 video with Opus audio. Plays in browsers and VLC.',
+            m4a: "YouTube's AAC audio, saved without re-encoding. Right for Apple Music and iPhone.",
+            mp3: "Re-encoded from YouTube's audio, so it plays on everything.",
+            opus: "YouTube's best audio, unchanged. The smallest file; plays in browsers and VLC.",
+            flac: 'A lossless container, but the source is already compressed, so the file only gets bigger.',
+            wav: 'Uncompressed and very large, with no cover art or chapters. For software that needs WAV.',
+        };
+
+        function loadOpts() {
+            const o = { ...DEFAULTS };
+            try {
+                const saved = JSON.parse(localStorage.getItem(STORE) || '{}');
+                for (const [k, v] of Object.entries(saved)) {
+                    if (!(k in DEFAULTS) || TRANSIENT.includes(k) || typeof v !== typeof DEFAULTS[k]) continue;
+                    if (ENUMS[k] && !ENUMS[k].includes(v)) continue;
+                    o[k] = v;
+                }
+            } catch { /* private window, blocked storage or bad JSON: defaults */ }
+            return o;
+        }
+
+        function saveOpts() {
+            try {
+                const keep = {};
+                for (const k of Object.keys(DEFAULTS)) if (!TRANSIENT.includes(k)) keep[k] = S.opts[k];
+                localStorage.setItem(STORE, JSON.stringify(keep));
+            } catch { /* storage blocked: nothing is remembered */ }
+        }
+
+        const S = {
+            opts: loadOpts(),
+            items: [],
+            issues: { bad: [], playlists: 0, extra: 0 },
+            chosen: new Set(),
+            helper: null,
+            helperLost: false,
+            jobs: [],
+            polling: false,
+            pollAgain: false,
+            commandText: '',
+            statusUntil: 0,
+        };
+
+        // ------------------------------------------------------------ previews
+
+        // oEmbed is the one YouTube endpoint that answers other sites, and it gives
+        // the title and channel. Four at a time is plenty for a batch.
+        const Oembed = (() => {
+            const cache = new Map();
+            const queue = [];
+            let active = 0;
+            function pump() {
+                while (active < 4 && queue.length) {
+                    const { id, resolve } = queue.shift();
+                    active++;
+                    const target = encodeURIComponent(`https://www.youtube.com/watch?v=${id}`);
+                    fetch(`https://www.youtube.com/oembed?format=json&url=${target}`)
+                        .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+                        .then((j) => resolve({ ok: true, title: j.title || '', channel: j.author_name || '' }))
+                        .catch(() => resolve({ ok: false }))
+                        .finally(() => { active--; pump(); });
+                }
+            }
+            return {
+                get(id) {
+                    if (!cache.has(id)) cache.set(id, new Promise((resolve) => { queue.push({ id, resolve }); pump(); }));
+                    return cache.get(id);
+                },
+            };
+        })();
+
+        async function fetchMeta(it) {
+            const r = await Oembed.get(it.id);
+            if (r.ok) {
+                it.title = it.title || r.title;
+                it.channel = it.channel || r.channel;
+                it.meta = 'ok';
+            } else it.meta = 'none';
+            render();
+        }
+
+        // ------------------------------------------------------------ the helper
+
+        async function detectHelper() {
+            if (!/^(?:127\.0\.0\.1|localhost)$/.test(location.hostname) || !location.port) return null;
+            try {
+                const r = await fetch('/api/session', { cache: 'no-store' });
+                return r.ok ? await r.json() : null;
+            } catch { return null; }
+        }
+
+        function helperLost() {
+            if (S.helperLost) return;
+            S.helperLost = true;
+            render();
+        }
+
+        async function api(pathname, body) {
+            let r;
+            try {
+                r = await fetch(pathname, {
+                    method: body === undefined ? 'GET' : 'POST',
+                    headers: { 'X-Helper-Key': S.helper.key, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+                    body: body === undefined ? undefined : JSON.stringify(body),
+                    cache: 'no-store',
+                });
+            } catch {
+                helperLost();
+                throw Object.assign(new Error('The helper is not answering. Is it still running?'), { hint: '' });
+            }
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok) throw Object.assign(new Error(j.error || `The helper answered ${r.status}.`), { hint: j.hint || '' });
+            return j;
+        }
+
+        async function loadInfo(it) {
+            it.infoState = 'loading';
+            it.infoError = '';
+            it.infoHint = '';
+            render();
+            try {
+                const r = await api('/api/info', { url: it.url, cookies: S.opts.cookies || undefined });
+                it.info = r.info;
+                it.infoState = 'ok';
+                it.title = r.info.title || it.title;
+                it.channel = r.info.channel || it.channel;
+            } catch (e) {
+                it.infoState = 'error';
+                it.infoError = e.message;
+                it.infoHint = e.hint || '';
+            }
+            render();
+        }
+
+        async function pollJobs() {
+            if (!S.helper) return;
+            if (S.polling) { S.pollAgain = true; return; }
+            S.polling = true;
+            try {
+                for (;;) {
+                    S.pollAgain = false;
+                    const r = await api('/api/jobs');
+                    S.jobs = r.jobs;
+                    renderJobs();
+                    const busy = S.jobs.some((j) => j.status === 'queued' || j.status === 'running');
+                    if (!busy && !S.pollAgain) break;
+                    await sleep(600);
+                }
+            } catch { /* helperLost() has said so */ } finally {
+                S.polling = false;
+            }
+        }
+
+        // ------------------------------------------------------------ context
+
+        function ctx() {
+            const single = S.items.length === 1;
+            const item = single ? S.items[0] : null;
+            return { single, item, info: item && item.infoState === 'ok' ? item.info : null, direct: !!S.helper };
+        }
+
+        const isLive = (info) => !!info && /^(?:is_live|is_upcoming)$/.test(info.live);
+        const usableItems = () => S.items.filter((it) => !isLive(it.info));
+
+        function range(o, c) {
+            const start = parseTime(o.start) ?? 0;
+            const end = parseTime(o.end);
+            const dur = c.info && c.info.duration;
+            let error = '';
+            if (Number.isNaN(start) || Number.isNaN(end)) error = 'Write times like 1:30, 1:02:03 or 90.';
+            else if (end != null && end <= start) error = 'The end of the range must come after its start.';
+            else if (dur && start >= dur) error = `The video is only ${clock(dur)} long.`;
+            return { start: Number.isNaN(start) ? 0 : start, end: dur && end != null && end >= dur ? null : end, error };
+        }
+
+        const chosenChapters = (c) => (c.info ? c.info.chapters.map((ch, index) => ({ ...ch, index })).filter((ch) => S.chosen.has(ch.index)) : []);
+
+        // Why each part option is unavailable right now, or '' when it is fine.
+        function partBlocks(c) {
+            const count = c.info ? c.info.chapters.length : null;
+            return {
+                whole: '',
+                range: c.single ? '' : 'A time range works on one video at a time.',
+                chapters: !c.single ? 'Choosing chapters works on one video at a time.'
+                    : !c.direct ? 'Choosing chapters needs the helper, which reads the chapter list.'
+                        : count === 0 ? 'This video has no chapters.' : '',
+                split: c.direct && c.single && count === 0 ? 'This video has no chapters.' : '',
+            };
+        }
+
+        function effectivePart(o, c) {
+            const blocks = partBlocks(c);
+            if (o.part === 'range' && !blocks.range && !range(o, c).error) return 'range';
+            if (o.part === 'chapters' && !blocks.chapters && c.info && S.chosen.size) return 'chapters';
+            if (o.part === 'split' && !blocks.split) return 'split';
+            return 'whole';
+        }
+
+        function abilities(o, part) {
+            const fmt = o.mode === 'audio' ? o.afmt : o.vfmt;
+            // yt-dlp's chapter split copies every stream, and an .opus file cannot take
+            // the picture along: the split fails. Every other format keeps its cover.
+            const splitOpus = fmt === 'opus' && part === 'split';
+            return {
+                cover: fmt !== 'webm' && fmt !== 'wav' && !splitOpus,
+                markers: fmt !== 'wav',
+                why: fmt === 'webm' ? 'WebM files cannot hold cover art.'
+                    : fmt === 'wav' ? 'WAV files cannot hold cover art or chapter markers.'
+                        : splitOpus ? 'Cover art cannot be kept when an Opus file is split into chapters, so it is left out.' : '',
+            };
+        }
+
+        // ------------------------------------------------------------ file names
+
+        const TOKENS = { title: '%(title)s', channel: '%(channel)s', date: '%(upload_date>%Y-%m-%d)s', id: '%(id)s' };
+        const UNSAFE = /[\x00-\x1f\x7f/\\:*?"<>|]/g;
+        const TOKEN_RE = /\{(title|channel|date|id|res)\}|[^{]+|\{/g;
+
+        const tidy = (s) => s.replace(/\s{2,}/g, ' ').replace(/^[\s.]+/, '').trim();
+        const cleanFolder = (s) => tidy(s.replace(/[\x00-\x1f\x7f/\\:*?"<>|%]/g, '')).slice(0, 60);
+
+        function autoName(c) {
+            if (!S.items.length) return '';
+            return c.single ? c.item.title || '' : '{title}';
+        }
+
+        const nameIsAuto = (o) => !o.nameTouched || !o.name.trim();
+
+        // The name as a yt-dlp output template: tokens become fields, and literal
+        // text loses the characters file systems reject and has its % escaped.
+        function toTemplate(text, o) {
+            return tidy(text.replace(TOKEN_RE, (m, tok) => {
+                if (tok === 'res') return o.mode === 'audio' ? '' : '%(height)sp';
+                if (tok) return TOKENS[tok];
+                return m.replace(UNSAFE, '').replace(/%/g, '%%');
+            }));
+        }
+
+        const rangeSuffix = (r) => ` (${compact(r.start)}-${r.end == null ? 'end' : compact(r.end)})`;
+
+        function baseTemplate(o, c, part) {
+            let t = nameIsAuto(o) ? '%(title)s' : toTemplate(o.name, o) || '%(title)s';
+            if (part === 'range') t += rangeSuffix(range(o, c));
+            const sub = c.direct ? cleanFolder(o.sub) : '';
+            return (sub ? sub + '/' : '') + t;
+        }
+
+        function outputs(o, c, part) {
+            const base = baseTemplate(o, c, part);
+            // --download-sections numbers chapters from 0, --split-chapters from 1.
+            if (part === 'chapters') return [`${base} - %(section_number+1)02d %(section_title)s.%(ext)s`];
+            if (part === 'split') return [`${base}.%(ext)s`, `chapter:${base} - chapters/%(section_number)02d %(section_title)s.%(ext)s`];
+            return [`${base}.%(ext)s`];
+        }
+
+        // yt-dlp swaps characters file systems reject for look-alikes; mirror it in previews.
+        const LOOKALIKE = { '/': '⧸', '\\': '⧹', ':': '：', '*': '＊', '?': '？', '"': '＂', '<': '＜', '>': '＞', '|': '｜' };
+        const fieldText = (s) => String(s).replace(/[/\\:*?"<>|]/g, (ch) => LOOKALIKE[ch]);
+
+        function previewBase(o, c, part, it) {
+            const info = it.info;
+            const picked = info && o.mode !== 'audio' ? pick(info, o).video : null;
+            const values = {
+                title: fieldText((info && info.title) || it.title || 'Video title'),
+                channel: fieldText((info && info.channel) || it.channel || 'Channel'),
+                date: info && info.uploadDate ? fmtDate(info.uploadDate) : 'date',
+                id: it.id,
+                res: o.mode === 'audio' ? '' : picked ? `${picked.height}p` : 'res',
+            };
+            let t = nameIsAuto(o) ? values.title
+                : tidy(o.name.replace(TOKEN_RE, (m, tok) => (tok ? values[tok] : m.replace(UNSAFE, '')))) || values.title;
+            if (part === 'range') t += rangeSuffix(range(o, c));
+            if (o.safe === 'ascii') t = t.normalize('NFKD').replace(/[^\x20-\x7e]/g, '').replace(/[\s&]+/g, '_');
+            const sub = c.direct ? cleanFolder(o.sub) : '';
+            return (sub ? sub + '/' : '') + t;
+        }
+
+        function previewFiles(o, c, part, it) {
+            const ext = o.mode === 'audio' ? o.afmt : o.vfmt;
+            const base = previewBase(o, c, part, it);
+            if (part === 'chapters') return chosenChapters(c).map((ch) => `${base} - ${pad2(ch.index + 1)} ${fieldText(ch.title)}.${ext}`);
+            if (part === 'split') {
+                const chs = it.info ? it.info.chapters : null;
+                const list = [];
+                if (o.keepFull || !c.direct) list.push(`${base}.${ext}`);
+                list.push(chs && chs.length
+                    ? `${base} - chapters/ (${chs.length} files: 01 ${fieldText(chs[0].title)}.${ext} and on)`
+                    : `${base} - chapters/ (one file per chapter)`);
+                return list;
+            }
+            return [`${base}.${ext}`];
+        }
+
+        // ------------------------------------------------------------ yt-dlp options
+
+        const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const rateValue = (s) => {
+            const v = s.trim().toUpperCase().replace(/I?B$/, '');
+            return /^[0-9]{1,6}(?:\.[0-9]{1,3})?[KMG]?$/.test(v) ? v : null;
+        };
+
+        // The one place the options become yt-dlp flags. helper.mjs only accepts what
+        // this emits: a new flag here needs adding to its allowlist too.
+        function buildArgs(o, c) {
+            const a = [];
+            const fmt = o.mode === 'audio' ? o.afmt : o.vfmt;
+            if (o.mode === 'audio') {
+                a.push('-f', fmt === 'm4a' ? 'ba[ext=m4a]/ba' : fmt === 'opus' ? 'ba[acodec=opus]/ba' : 'ba', '-x', '--audio-format', fmt);
+                if (fmt === 'mp3') a.push('--audio-quality', o.abr);
+            } else {
+                // The cap goes straight after the codec. yt-dlp's own mp4 preset puts
+                // "quality" before "res", and YouTube's quality ranking then wins over a cap.
+                const res = o.cap === 'best' ? 'res' : `res:${o.cap}`;
+                const sort = fmt === 'mp4' && o.compat ? `vcodec:h264,${res},acodec:aac`
+                    : fmt === 'mp4' ? `${res},ext:mp4:m4a`
+                        : fmt === 'webm' ? `${res},ext:webm:webm` : res;
+                if (o.mode === 'video') a.push('-f', 'bv');
+                a.push('-S', sort);
+                if (o.mode === 'av') a.push('--merge-output-format', fmt);
+                if (fmt !== 'webm') a.push('--remux-video', fmt);
+            }
+
+            const part = effectivePart(o, c);
+            if (part === 'range') {
+                const r = range(o, c);
+                a.push('--download-sections', `*${clock(r.start)}-${r.end == null ? 'inf' : clock(r.end)}`);
+                if (o.exact) a.push('--force-keyframes-at-cuts');
+            } else if (part === 'chapters') {
+                for (const ch of chosenChapters(c)) a.push('--download-sections', `^${escRe(ch.title)}$`);
+            } else if (part === 'split') a.push('--split-chapters');
+
+            const can = abilities(o, part);
+            if (o.tags) {
+                a.push('--embed-metadata');
+                if (!o.markers || !can.markers) a.push('--no-embed-chapters');
+            } else if (o.markers && can.markers) a.push('--embed-chapters');
+            if (o.cover && can.cover) a.push('--embed-thumbnail');
+            if (o.thumb) a.push('--write-thumbnail');
+            if ((o.cover && can.cover) || o.thumb) a.push('--convert-thumbnails', 'jpg');
+            if (o.desc) a.push('--write-description');
+
+            if (o.cookies) a.push('--cookies-from-browser', o.cookies);
+            const rate = rateValue(o.rate);
+            if (rate) a.push('-r', rate);
+            if (o.overwrite) a.push('--force-overwrites');
+            if (o.safe === 'ascii') a.push('--restrict-filenames');
+            else if (o.safe === 'windows') a.push('--windows-filenames');
+
+            for (const t of outputs(o, c, part)) a.push('-o', t);
+            return a;
+        }
+
+        const VALUE_FLAGS = new Set(['-f', '-S', '--merge-output-format', '--remux-video', '--audio-format', '--audio-quality',
+            '--download-sections', '--convert-thumbnails', '--cookies-from-browser', '-r', '-o', '-P']);
+
+        function quote(arg, shell) {
+            if (shell === 'pwsh') return /^[A-Za-z0-9_\-+=/.:]+$/.test(arg) ? arg : `'${arg.replace(/'/g, "''")}'`;
+            if (/^[A-Za-z0-9_\-+=/.,:@]+$/.test(arg)) return arg;
+            // Leave a leading ~/ outside the quotes so the shell still expands it.
+            if (arg.startsWith('~/')) return /^~\/[A-Za-z0-9_\-+=/.,:@]*$/.test(arg) ? arg : `~/'${arg.slice(2).replace(/'/g, "'\\''")}'`;
+            return `'${arg.replace(/'/g, "'\\''")}'`;
+        }
+
+        function commandText(args, urls, folder, shell) {
+            const lines = [['yt-dlp']];
+            for (let i = 0; i < args.length; i++) lines.push(VALUE_FLAGS.has(args[i]) ? [args[i], args[++i]] : [args[i]]);
+            lines.push(['--no-playlist'], ['-P', folder]);
+            for (const u of urls) lines.push([u]);
+            const joiner = shell === 'pwsh' ? ' `\n  ' : ' \\\n  ';
+            return lines.map((line) => line.map((x) => quote(x, shell)).join(' ')).join(joiner);
+        }
+
+        // ------------------------------------------------------------ format picks and sizes
+
+        // Mirrors what yt-dlp chooses for the sort strings above, checked against its
+        // real choices, so the sizes shown are for the file that will actually arrive.
+        const vrank = (c) => (/^av01/.test(c) ? 5 : /^vp0?9\.2/.test(c) ? 4 : /^vp0?9/.test(c) ? 3 : /^(?:hev1|hvc1)/.test(c) ? 2 : /^avc/.test(c) ? 1 : 0);
+        const vname = (c) => (/^av01/.test(c) ? 'AV1' : /^vp0?9/.test(c) ? 'VP9' : /^(?:hev1|hvc1)/.test(c) ? 'H.265' : /^avc/.test(c) ? 'H.264' : c);
+        const aname = (c) => (/^mp4a/.test(c) ? 'AAC' : c === 'opus' ? 'Opus' : c);
+        const https = (f) => (f.proto === 'https' ? 1 : 0);
+        // yt-dlp's "res" is the smaller side, so a vertical 1080x1920 Short counts as 1080p.
+        const resOf = (f) => (f.width && f.height ? Math.min(f.width, f.height) : f.height);
+
+        function cmp(a, b) {
+            for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i] ? 1 : -1;
+            return 0;
+        }
+
+        function best(list, key) {
+            let top = null;
+            let topKey = null;
+            for (const f of list) {
+                const k = key(f);
+                if (!top || cmp(k, topKey) > 0) { top = f; topKey = k; }
+            }
+            return top;
+        }
+
+        function pick(info, o) {
+            const fmt = o.mode === 'audio' ? o.afmt : o.vfmt;
+            const audio = info.formats.filter((f) => f.vcodec === 'none' && f.acodec !== 'none');
+            const video = info.formats.filter((f) => f.vcodec !== 'none' && f.acodec === 'none' && f.height);
+            const aac = fmt === 'm4a' || fmt === 'mp4';
+            const byRate = (f) => [https(f), f.abr || f.tbr || 0];
+            const a = best(audio.filter((f) => (aac ? /^mp4a/.test(f.acodec) : f.acodec === 'opus')), byRate) || best(audio, byRate);
+            if (o.mode === 'audio') return { video: null, audio: a };
+
+            let pool = video;
+            if (fmt === 'mp4' && o.compat) {
+                const h264 = video.filter((f) => /^avc/.test(f.vcodec));
+                if (h264.length) pool = h264;
+            }
+            const cap = o.cap === 'best' ? Infinity : Number(o.cap);
+            let under = pool.filter((f) => resOf(f) <= cap);
+            if (!under.length && pool.length) {
+                const low = Math.min(...pool.map(resOf));
+                under = pool.filter((f) => resOf(f) === low);
+            }
+            const ext = fmt === 'mp4' && !o.compat ? 'mp4' : fmt === 'webm' ? 'webm' : '';
+            const v = best(under, (f) => [resOf(f), ext && f.ext === ext ? 1 : 0, f.fps || 0, vrank(f.vcodec), https(f), f.tbr || 0]);
+            return { video: v, audio: o.mode === 'video' ? null : a };
+        }
+
+        function bytesOf(f, dur) {
+            if (!f) return 0;
+            if (f.size) return f.size;
+            const kbps = f.tbr || f.abr;
+            return kbps && dur ? (kbps * 1000 / 8) * dur : 0;
+        }
+
+        function estimate(info, o, c) {
+            const p = pick(info, o);
+            const dur = info.duration || 0;
+            let bytes;
+            if (o.mode === 'audio') {
+                const kbps = o.afmt === 'mp3' ? (o.abr === '0' ? 245 : parseInt(o.abr, 10))
+                    : o.afmt === 'flac' ? 900 : o.afmt === 'wav' ? 1536 : 0;
+                bytes = kbps ? (kbps * 1000 / 8) * dur : bytesOf(p.audio, dur);
+            } else bytes = bytesOf(p.video, dur) + bytesOf(p.audio, dur);
+            const part = effectivePart(o, c);
+            if (dur && part === 'range') {
+                const r = range(o, c);
+                bytes *= Math.max(0, (r.end ?? dur) - r.start) / dur;
+            } else if (dur && part === 'chapters') {
+                bytes *= chosenChapters(c).reduce((sum, ch) => sum + (ch.end - ch.start), 0) / dur;
+            } else if (part === 'split' && (o.keepFull || !c.direct)) bytes *= 2;
+            return { bytes, pick: p };
+        }
+
+        const describeVideo = (f) => `${resOf(f)}p${f.fps > 30 ? Math.round(f.fps) : ''} · ${vname(f.vcodec)}`;
+        const TIERS = ['2160', '1440', '1080', '720', '480', '360'];
+        const tierName = (cap) => (cap === '2160' ? '4K (2160p)' : `${cap}p`);
+
+        function tierRows(o, c) {
+            if (c.info && c.info.formats.length) {
+                const current = pick(c.info, o).video;
+                const rows = [];
+                const seen = new Set();
+                // One row per file the video can actually give, named by what it gives:
+                // a video with no 480p has no 480p row, rather than one that quietly
+                // delivers 360p. Each row's cap is its own resolution.
+                for (const tier of ['best', ...TIERS]) {
+                    const p = pick(c.info, { ...o, cap: tier }).video;
+                    if (!p || seen.has(p.id)) continue;
+                    if (tier !== 'best' && resOf(p) > Number(tier)) continue;
+                    seen.add(p.id);
+                    const cap = tier === 'best' ? 'best' : String(resOf(p));
+                    rows.push({
+                        cap,
+                        label: cap === 'best' ? 'Best available' : tierName(cap),
+                        sub: describeVideo(p),
+                        size: `≈ ${fmtBytes(estimate(c.info, { ...o, cap }, c).bytes)}`,
+                        checked: !!current && current.id === p.id,
+                    });
+                }
+                if (rows.length) return rows;
+            }
+            // Without the real formats: every tier, with H.264's 1080p ceiling marked.
+            const ceiling = o.vfmt === 'mp4' && o.compat;
+            const capped = (cap) => ceiling && Number(cap) > 1080;
+            return ['best', ...TIERS].map((cap) => ({
+                cap,
+                label: cap === 'best' ? 'Best available' : tierName(cap),
+                sub: cap === 'best' ? (ceiling ? 'Up to 1080p in H.264' : 'Up to 4K or more') : capped(cap) ? 'H.264 stops at 1080p' : '',
+                size: '',
+                disabled: capped(cap),
+                checked: o.cap === cap || (capped(o.cap) && cap === 'best'),
+            }));
+        }
+
+        // ------------------------------------------------------------ rendering
+
+        let renderTimer = 0;
+        function render() {
+            if (renderTimer) return;
+            renderTimer = setTimeout(() => { renderTimer = 0; renderNow(); }, 0);
+        }
+
+        function renderNow() {
+            renderLinks();
+            renderOptions();
+            renderOutput();
+        }
+
+        function renderLinks() {
+            const n = S.items.length;
+            $('links-summary').textContent = n ? `${n} video${n === 1 ? '' : 's'}` : '';
+            $('btn-clear').hidden = !$('links').value.trim();
+
+            const { bad, playlists, extra } = S.issues;
+            const alerts = [];
+            if (bad.length) alerts.push(notice('warn', `Not a YouTube video link: ${bad.slice(0, 3).join(', ')}${bad.length > 3 ? ` and ${bad.length - 3} more` : ''}.`));
+            if (playlists) alerts.push(notice('warn', 'Playlist links are not supported. Paste the links of the videos you want instead.'));
+            if (extra) alerts.push(notice('warn', `Only the first ${MAX_LINKS} videos are used; ${extra} more were left out.`));
+            $('link-alerts').replaceChildren(...alerts);
+            $('videos').replaceChildren(...S.items.map(card));
+        }
+
+        // A plain play mark for IDs YouTube has no thumbnail for, instead of a broken image.
+        const NO_THUMB = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 68">'
+            + '<rect width="120" height="68" fill="#F3F4F6"/><path d="M53 24v20l17-10z" fill="#D1D5DB"/></svg>');
+        function noThumb(e) {
+            if (e.target.src !== NO_THUMB) e.target.src = NO_THUMB;
+        }
+
+        // Cards are kept per video and updated in place, so thumbnails never reload.
+        function card(it) {
+            if (!it.el) {
+                it.el = el('li', { class: 'video' },
+                    el('img', { class: 'thumb', src: `https://i.ytimg.com/vi/${it.id}/mqdefault.jpg`, alt: '', width: '120', height: '68', loading: 'lazy', decoding: 'async', onerror: noThumb }),
+                    el('div', { class: 'v-meta' }, el('div', { class: 'v-title' }), el('div', { class: 'v-sub' }), el('div', { class: 'v-state' })),
+                    el('button', { type: 'button', class: 'btn-icon', 'aria-label': 'Remove this video', title: 'Remove', onclick: () => removeVideo(it.id) }, '✕'));
+            }
+            const [title, sub, state] = it.el.children[1].children;
+            const info = it.info;
+            title.textContent = it.title || (it.meta === 'loading' ? 'Loading the title…' : `Video ${it.id}`);
+            sub.textContent = [
+                it.channel,
+                info && info.duration ? clock(info.duration) : '',
+                info && info.uploadDate ? fmtDate(info.uploadDate) : '',
+                it.start ? `link starts at ${clock(it.start)}` : '',
+            ].filter(Boolean).join(' · ');
+            state.className = 'v-state';
+            state.replaceChildren();
+            if (S.helper) {
+                if (it.infoState === 'loading') {
+                    state.classList.add('is-busy');
+                    state.textContent = 'Reading formats and chapters…';
+                } else if (it.infoState === 'error') {
+                    state.classList.add('is-error');
+                    state.append(el('span', { text: it.infoError }), it.infoHint ? el('span', { class: 'v-hint', text: ` ${it.infoHint}` }) : '',
+                        el('button', { type: 'button', class: 'btn-link', onclick: () => loadInfo(it) }, 'Try again'));
+                } else if (it.infoState === 'ok') {
+                    if (isLive(info)) {
+                        state.classList.add('is-warn');
+                        state.textContent = 'Live or upcoming. It can be saved once the stream has ended.';
+                    } else state.textContent = info.chapters.length ? `${info.chapters.length} chapters` : 'No chapters';
+                }
+            } else if (it.meta === 'none') {
+                state.classList.add('is-warn');
+                state.textContent = 'No preview: the video may be private, removed or not embeddable. It can still be tried.';
+            }
+            return it.el;
+        }
+
+        function setCheck(id, value, disabled) {
+            const n = $(id);
+            n.checked = value && !disabled;
+            n.disabled = disabled;
+            n.closest('label').classList.toggle('is-disabled', disabled);
+        }
+
+        function renderOptions() {
+            const o = S.opts;
+            const c = ctx();
+            const audio = o.mode === 'audio';
+            const fmt = audio ? o.afmt : o.vfmt;
+
+            const sel = $('container');
+            if (sel.dataset.kind !== (audio ? 'a' : 'v')) {
+                sel.replaceChildren(...(audio ? A_FORMATS : V_FORMATS).map(([v, label]) => el('option', { value: v }, label)));
+                sel.dataset.kind = audio ? 'a' : 'v';
+            }
+            sel.value = fmt;
+            $('container-hint').textContent = FORMAT_HINTS[fmt];
+            $('f-compat').hidden = audio || o.vfmt !== 'mp4';
+            $('f-quality').hidden = audio;
+            $('f-abr').hidden = !(audio && o.afmt === 'mp3');
+            if (!audio) renderTiers(o, c);
+
+            // A choice that no longer fits (a second link pasted, say) falls back to the
+            // whole video, except while the chapter list is still on its way.
+            const blocks = partBlocks(c);
+            const waiting = o.part === 'chapters' && c.direct && c.single && !c.info && c.item.infoState !== 'error';
+            if (blocks[o.part] && !waiting) o.part = 'whole';
+            for (const r of document.querySelectorAll('input[name="part"]')) {
+                r.checked = r.value === o.part;
+                r.disabled = !!blocks[r.value];
+                const label = r.closest('label');
+                label.classList.toggle('is-disabled', r.disabled);
+                label.title = blocks[r.value];
+            }
+            $('sub-range').hidden = o.part !== 'range';
+            $('sub-chapters').hidden = o.part !== 'chapters';
+            $('sub-split').hidden = o.part !== 'split' || !c.direct;
+            renderChapters(c);
+            const r = range(o, c);
+            $('start').classList.toggle('invalid', o.part === 'range' && Number.isNaN(parseTime(o.start)));
+            $('end').classList.toggle('invalid', o.part === 'range' && (Number.isNaN(parseTime(o.end)) || /must come after/.test(r.error)));
+            $('part-hint').textContent = partHint(o, c, blocks, r);
+
+            const can = abilities(o, effectivePart(o, c));
+            setCheck('m-cover', o.cover, !can.cover);
+            setCheck('m-markers', o.markers, !can.markers);
+            $('meta-hint').textContent = can.why;
+
+            const name = $('name');
+            if (nameIsAuto(o) && document.activeElement !== name) {
+                const auto = autoName(c);
+                if (name.value !== auto) name.value = auto;
+            }
+            name.placeholder = S.items.length > 1 ? '{title}' : 'The video title';
+            document.querySelector('[data-token="res"]').disabled = audio;
+            $('name-hint').textContent = !S.items.length ? 'The video title, or a name of your own. The extension is added for you.'
+                : S.items.length > 1 ? 'One name for every video, so use tokens such as {title}.'
+                    : nameIsAuto(o) ? 'The video title. Change it, or add tokens.' : 'The extension is added for you.';
+
+            $('rate').classList.toggle('invalid', !!o.rate.trim() && !rateValue(o.rate));
+            $('f-shell').hidden = c.direct;
+            for (const b of document.querySelectorAll('[data-preset]')) {
+                b.classList.toggle('is-active', Object.entries(PRESETS[b.dataset.preset]).every(([k, v]) => o[k] === v));
+            }
+        }
+
+        function partHint(o, c, blocks, r) {
+            if (o.part === 'range') {
+                if (r.error) return r.error;
+                const dur = c.info && c.info.duration;
+                const edge = o.exact ? '' : ' Without an exact cut it starts at the nearest keyframe, up to a few seconds early.';
+                return (dur ? `The video is ${clock(dur)} long.` : '') + edge;
+            }
+            if (o.part === 'chapters') {
+                if (!c.info) return 'Reading the chapter list…';
+                return `${S.chosen.size} of ${c.info.chapters.length} chapters ticked.`;
+            }
+            if (o.part === 'split') return c.direct ? '' : 'yt-dlp keeps the full video too, and splits only videos that have chapters.';
+            return blocks.range || blocks.chapters || '';
+        }
+
+        function renderTiers(o, c) {
+            const box = $('tiers');
+            const rows = tierRows(o, c);
+            const sig = JSON.stringify(rows);
+            if (box.dataset.sig === sig) return;
+            box.dataset.sig = sig;
+            box.replaceChildren(...rows.map((r) => el('label', { class: `tier${r.disabled ? ' is-disabled' : ''}`, title: r.disabled ? r.sub : '' },
+                el('input', { type: 'radio', name: 'cap', value: r.cap, checked: r.checked, disabled: !!r.disabled }),
+                el('span', { class: 't-name', text: r.label }),
+                r.sub ? el('span', { class: 't-sub', text: r.sub }) : '',
+                r.size ? el('span', { class: 't-size', text: r.size }) : '')));
+        }
+
+        function renderChapters(c) {
+            const box = $('sub-chapters');
+            const chs = c.info ? c.info.chapters : [];
+            const sig = c.item && chs.length ? `${c.item.id}:${chs.length}` : '';
+            if (box.dataset.sig === sig) return;
+            box.dataset.sig = sig;
+            if (!sig) { box.replaceChildren(); return; }
+            box.replaceChildren(
+                el('div', { class: 'ch-tools' },
+                    el('button', { type: 'button', class: 'btn-link', 'data-ch': 'all' }, 'Tick all'), ' · ',
+                    el('button', { type: 'button', class: 'btn-link', 'data-ch': 'none' }, 'Clear')),
+                el('div', { class: 'ch-list' }, ...chs.map((ch, i) => el('label', { class: 'check ch' },
+                    el('input', { type: 'checkbox', 'data-chapter': String(i), checked: S.chosen.has(i) }),
+                    el('span', { class: 'ch-n', text: pad2(i + 1) }),
+                    el('span', { class: 'ch-title', text: ch.title }),
+                    el('span', { class: 'ch-time', text: `${clock(ch.start)} to ${clock(ch.end)}` })))));
+        }
+
+        function renderBanner() {
+            const box = $('banner');
+            $('setup').hidden = !!S.helper;
+            if (!S.helper) { box.replaceChildren(); return; }
+            const sig = `${S.helperLost}`;
+            if (box.dataset.sig === sig) return;
+            box.dataset.sig = sig;
+            if (S.helperLost) {
+                box.replaceChildren(notice('error', el('strong', { text: 'The helper has stopped. ' }), 'Start it again in Terminal, then reload this page.'));
+                return;
+            }
+            const t = S.helper.tools;
+            const tool = (x, name) => (x ? `${name} ${x.version}` : `${name} missing`);
+            const parts = [notice('success',
+                el('strong', { text: 'Connected to the helper on this computer. ' }), 'Files are saved to ', el('code', { text: S.helper.dir }), '.',
+                el('div', { class: 'tools', text: [tool(t.ytdlp, 'yt-dlp'), tool(t.ffmpeg, 'ffmpeg'), tool(t.deno, 'deno')].join(' · ') }))];
+            if (!t.ytdlp || !t.ffmpeg) parts.push(notice('error', 'Install what is missing with ', el('code', { text: S.helper.install }), ', then restart the helper.'));
+            else if (!t.deno) parts.push(notice('warn', 'yt-dlp needs Deno to download from YouTube. Install it (on a Mac, ', el('code', { text: 'brew install deno' }), ') and restart the helper.'));
+            if (t.ytdlp && t.ytdlp.ageDays > 90) parts.push(notice('warn', `Your yt-dlp is ${t.ytdlp.ageDays} days old, and YouTube changes often. Update it (on a Mac, `, el('code', { text: 'brew upgrade yt-dlp' }), ').'));
+            box.replaceChildren(...parts);
+        }
+
+        function summaryText(o, total) {
+            if (!S.items.length) return '';
+            const fmt = o.mode === 'audio' ? o.afmt : o.vfmt;
+            const bits = [o.mode === 'audio' ? `${fmt.toUpperCase()} audio` : `${fmt.toUpperCase()}${o.mode === 'video' ? ', no sound' : ''}`];
+            if (o.mode !== 'audio') {
+                bits.push(o.cap === 'best' ? (fmt === 'mp4' && o.compat ? 'up to 1080p' : 'best quality') : `up to ${o.cap}p`);
+            }
+            if (S.items.length > 1) bits.push(`${S.items.length} videos`);
+            if (total) bits.push(`≈ ${fmtBytes(total)}`);
+            return bits.join(' · ');
+        }
+
+        function renderOutput() {
+            const o = S.opts;
+            const c = ctx();
+            const usable = usableItems();
+            const part = effectivePart(o, c);
+            renderBanner();
+
+            let total = 0;
+            let known = usable.length > 0;
+            for (const it of usable) {
+                if (it.info) total += estimate(it.info, o, c).bytes;
+                else known = false;
+            }
+            $('out-summary').textContent = summaryText(o, known ? total : 0);
+
+            const rows = [];
+            const row = (name, size) => el('div', { class: 'out-row' }, el('span', { class: 'out-name', text: name }), size ? el('span', { class: 'out-size', text: size }) : '');
+            if (c.single && usable.length) {
+                const names = previewFiles(o, c, part, c.item);
+                names.forEach((n, i) => rows.push(row(n, i === 0 && known && names.length === 1 ? `≈ ${fmtBytes(total)}` : '')));
+                if (o.thumb) rows.push(row('and the thumbnail, as .jpg'));
+                if (o.desc) rows.push(row('and the description, as .description'));
+            } else if (usable.length) {
+                for (const it of usable.slice(0, 3)) rows.push(row(previewFiles(o, c, part, it)[0]));
+                if (usable.length > 3) rows.push(el('div', { class: 'out-more', text: `and ${usable.length - 3} more` }));
+            }
+            $('out-files').replaceChildren(...rows);
+
+            const wrap = $('cmd-wrap');
+            wrap.hidden = !usable.length;
+            if (usable.length) {
+                const shell = S.helper ? (S.helper.platform === 'win32' ? 'pwsh' : 'posix') : o.shell;
+                const folder = S.helper ? S.helper.dir : (o.folder.trim() || '~/Downloads');
+                S.commandText = commandText(buildArgs(o, c), usable.map((it) => it.url), folder, shell);
+                $('cmd').textContent = S.commandText;
+                $('cmd-shell').textContent = shell === 'pwsh' ? 'for Windows PowerShell' : 'for Terminal on macOS or Linux';
+            }
+
+            let problem = '';
+            if (!S.items.length) problem = 'Paste a YouTube link to begin.';
+            else if (!usable.length) problem = 'Live streams can be saved once they have ended.';
+            else if (o.part === 'range' && c.single && range(o, c).error) problem = range(o, c).error;
+            else if (o.part === 'chapters' && c.single && !c.info) problem = c.item.infoState === 'error' ? 'The chapter list could not be read.' : 'Reading the chapter list…';
+            else if (o.part === 'chapters' && c.single && !S.chosen.size) problem = 'Tick at least one chapter.';
+            else if (S.helper && S.helperLost) problem = 'The helper has stopped.';
+            else if (S.helper && !S.helper.tools.ytdlp) problem = 'yt-dlp is not installed yet.';
+            const btn = $('btn-go');
+            btn.disabled = !!problem;
+            btn.textContent = !S.helper ? 'Copy command' : usable.length > 1 ? `Download ${usable.length} videos` : 'Download';
+            if (Date.now() > S.statusUntil) {
+                $('status').textContent = problem || (S.helper ? 'Ready.' : 'Copy the command, paste it into Terminal and press Return.');
+            }
+        }
+
+        const revealLabel = () => (S.helper && S.helper.platform === 'darwin' ? 'Show in Finder'
+            : S.helper && S.helper.platform === 'win32' ? 'Show in Explorer' : 'Open folder');
+
+        function stageText(j) {
+            if (j.status === 'queued') return 'Waiting';
+            if (j.status === 'cancelled') return 'Cancelled';
+            if (j.status === 'error') return 'Failed';
+            if (j.status === 'running' && j.percent != null && /^Downloading (audio|video)?$/.test(j.stage)) return `${j.stage} · ${Math.floor(j.percent)}%`;
+            return j.stage;
+        }
+
+        const jobEls = new Map();
+        function jobEl(j) {
+            let n = jobEls.get(j.id);
+            if (!n) {
+                n = el('li', { class: 'job' },
+                    el('div', { class: 'job-top' }, el('span', { class: 'job-title' }), el('span', { class: 'job-stage' })),
+                    el('div', { class: 'bar' }, el('span')),
+                    el('div', { class: 'job-sub' }),
+                    el('div', { class: 'job-files' }),
+                    el('div', { class: 'job-error' }),
+                    el('div', { class: 'job-actions' },
+                        el('button', { type: 'button', class: 'btn-small', onclick: () => jobAction(j.id, 'cancel') }, 'Cancel'),
+                        el('button', { type: 'button', class: 'btn-small', onclick: () => jobAction(j.id, 'reveal') }, revealLabel())));
+                jobEls.set(j.id, n);
+            }
+            const [top, bar, sub, files, error, actions] = n.children;
+            n.className = `job is-${j.status}`;
+            top.children[0].textContent = j.label;
+            top.children[1].textContent = stageText(j);
+            bar.hidden = j.status !== 'running';
+            bar.classList.toggle('is-indeterminate', j.percent == null);
+            bar.firstChild.style.width = j.percent == null ? '' : `${j.percent.toFixed(1)}%`;
+            sub.textContent = j.status !== 'running' ? '' : [
+                j.speed ? `${fmtBytes(j.speed)}/s` : '',
+                j.eta > 0 ? `${clock(j.eta)} left` : '',
+                j.total ? `${fmtBytes(j.downloaded)} of ${fmtBytes(j.total)}` : '',
+            ].filter(Boolean).join(' · ');
+            files.replaceChildren(...(j.files.length ? [el('div', { class: 'job-folder', text: `In ${j.files[0].folder}` })] : []),
+                ...j.files.map((f) => el('div', { class: 'job-file' }, el('span', { text: f.name }), el('span', { text: fmtBytes(f.size) }))));
+            error.replaceChildren(...(j.status === 'error' ? [el('span', { text: j.error }), j.hint ? el('span', { class: 'job-hint', text: j.hint }) : ''] : []));
+            actions.children[0].hidden = !(j.status === 'running' || j.status === 'queued');
+            actions.children[1].hidden = !(j.status === 'done' && j.files.length);
+            return n;
+        }
+
+        function renderJobs() {
+            $('jobs-wrap').hidden = !S.jobs.length;
+            $('jobs').replaceChildren(...S.jobs.slice().reverse().map(jobEl));
+            $('btn-clear-jobs').hidden = !S.jobs.some((j) => ['done', 'error', 'cancelled'].includes(j.status));
+            const running = S.jobs.find((j) => j.status === 'running');
+            document.title = running && running.percent != null ? `${Math.floor(running.percent)}% · ${TITLE}` : TITLE;
+        }
+
+        // ------------------------------------------------------------ actions
+
+        function flash(text, ms = 3500) {
+            S.statusUntil = Date.now() + ms;
+            $('status').textContent = text;
+            setTimeout(render, ms + 50);
+        }
+
+        function syncLinks() {
+            const parsed = parseLinks($('links').value);
+            const old = new Map(S.items.map((it) => [it.id, it]));
+            const before = S.items.length === 1 ? S.items[0].id : null;
+            S.items = parsed.items.map((p) => {
+                const it = old.get(p.id);
+                if (it) { it.start = p.start; return it; }
+                return { ...p, title: '', channel: '', meta: 'loading', info: null, infoState: 'idle', infoError: '', infoHint: '', el: null };
+            });
+            S.issues = parsed;
+
+            const now = S.items.length === 1 ? S.items[0] : null;
+            if (!now || now.id !== before) {
+                S.chosen.clear();
+                // A timestamp in a single link becomes the start of a time range.
+                if (now && now.start && !S.opts.start) {
+                    S.opts.start = clock(now.start);
+                    $('start').value = S.opts.start;
+                }
+            }
+            for (const it of S.items) {
+                if (it.meta === 'loading' && !it.asked) { it.asked = true; fetchMeta(it); }
+                if (S.helper && it.infoState === 'idle') loadInfo(it);
+            }
+            render();
+        }
+
+        function appendLinks(text) {
+            if (!text || !text.trim()) return;
+            const box = $('links');
+            box.value = (box.value.trim() ? box.value.replace(/\s*$/, '\n') : '') + text.trim();
+            syncLinks();
+        }
+
+        function removeVideo(id) {
+            const box = $('links');
+            box.value = box.value.split('\n')
+                .map((line) => line.split(/([\s,]+)/).filter((tok) => videoId(tok) !== id).join('').trim())
+                .filter(Boolean).join('\n');
+            syncLinks();
+        }
+
+        async function pasteLinks() {
+            try { appendLinks(await navigator.clipboard.readText()); } catch {
+                flash('The browser did not allow reading the clipboard. Click the box and press Ctrl+V or ⌘V.');
+                $('links').focus();
+            }
+        }
+
+        async function copyCommand() {
+            try {
+                await navigator.clipboard.writeText(S.commandText);
+                flash('Copied. Paste it into Terminal and press Return.');
+            } catch {
+                // file:// pages and older browsers: select it so Ctrl+C or ⌘C works.
+                const sel = getSelection();
+                const r = document.createRange();
+                r.selectNodeContents($('cmd'));
+                sel.removeAllRanges();
+                sel.addRange(r);
+                flash('Selected. Press Ctrl+C or ⌘C to copy it.');
+            }
+        }
+
+        async function go() {
+            if ($('btn-go').disabled) return;
+            if (!S.helper) return copyCommand();
+            const o = S.opts;
+            const c = ctx();
+            const args = buildArgs(o, c);
+            $('btn-go').disabled = true;
+            let queued = 0;
+            try {
+                for (const it of usableItems()) {
+                    await api('/api/jobs', { url: it.url, args, keepFull: o.keepFull, label: (it.info && it.info.title) || it.title || it.id });
+                    queued++;
+                }
+                flash(queued === 1 ? 'Started. Progress is shown below.' : `Queued ${queued} downloads. They run one at a time.`);
+            } catch (e) {
+                flash(e.message, 6000);
+            }
+            pollJobs();
+            render();
+        }
+
+        async function jobAction(id, act) {
+            try { await api(`/api/jobs/${id}/${act}`, {}); } catch (e) { flash(e.message); }
+            pollJobs();
+        }
+
+        function insertToken(tok) {
+            const n = $('name');
+            const from = n.selectionStart ?? n.value.length;
+            const to = n.selectionEnd ?? n.value.length;
+            n.value = n.value.slice(0, from) + `{${tok}}` + n.value.slice(to);
+            n.focus();
+            n.setSelectionRange(from + tok.length + 2, from + tok.length + 2);
+            S.opts.name = n.value;
+            S.opts.nameTouched = true;
+            render();
+        }
+
+        // Pushes the options into the controls: on start and after a preset.
+        function writeOpts() {
+            const o = S.opts;
+            for (const r of document.querySelectorAll('input[name="mode"]')) r.checked = r.value === o.mode;
+            $('compat').checked = o.compat;
+            $('abr').value = o.abr;
+            $('start').value = o.start;
+            $('end').value = o.end;
+            $('exact').checked = o.exact;
+            $('keep-full').checked = o.keepFull;
+            $('m-tags').checked = o.tags;
+            $('m-markers').checked = o.markers;
+            $('m-cover').checked = o.cover;
+            $('m-thumb').checked = o.thumb;
+            $('m-desc').checked = o.desc;
+            $('cookies').value = o.cookies;
+            $('rate').value = o.rate;
+            $('overwrite').value = o.overwrite ? '1' : '';
+            $('safe').value = o.safe;
+            $('shell').value = o.shell;
+            $('folder').value = S.helper ? o.sub : o.folder;
+        }
+
+        function onOption(e) {
+            const t = e.target;
+            const o = S.opts;
+            if (t.name === 'mode') o.mode = t.value;
+            else if (t.name === 'part') o.part = t.value;
+            else if (t.name === 'cap') o.cap = t.value;
+            else if (t.dataset.chapter !== undefined) {
+                const i = Number(t.dataset.chapter);
+                if (t.checked) S.chosen.add(i); else S.chosen.delete(i);
+            } else {
+                switch (t.id) {
+                    case 'container': if (o.mode === 'audio') o.afmt = t.value; else o.vfmt = t.value; break;
+                    case 'compat': o.compat = t.checked; break;
+                    case 'abr': o.abr = t.value; break;
+                    case 'start': o.start = t.value; break;
+                    case 'end': o.end = t.value; break;
+                    case 'exact': o.exact = t.checked; break;
+                    case 'keep-full': o.keepFull = t.checked; break;
+                    case 'm-tags': o.tags = t.checked; break;
+                    case 'm-markers': o.markers = t.checked; break;
+                    case 'm-cover': o.cover = t.checked; break;
+                    case 'm-thumb': o.thumb = t.checked; break;
+                    case 'm-desc': o.desc = t.checked; break;
+                    case 'name':
+                        o.name = t.value;
+                        o.nameTouched = t.value.trim() !== '' && t.value !== autoName(ctx());
+                        break;
+                    case 'folder': if (S.helper) o.sub = t.value; else o.folder = t.value; break;
+                    case 'cookies':
+                        if (o.cookies === t.value) return;
+                        o.cookies = t.value;
+                        // A sign-in may fix what failed without one.
+                        for (const it of S.items) if (S.helper && it.infoState === 'error') loadInfo(it);
+                        break;
+                    case 'rate': o.rate = t.value; break;
+                    case 'overwrite': o.overwrite = t.value === '1'; break;
+                    case 'safe': o.safe = t.value; break;
+                    case 'shell': o.shell = t.value; break;
+                    default: return;
+                }
+            }
+            saveOpts();
+            render();
+        }
+
+        function onOptionClick(e) {
+            const b = e.target.closest('button');
+            if (!b) return;
+            if (b.dataset.preset) {
+                Object.assign(S.opts, PRESETS[b.dataset.preset]);
+                writeOpts();
+                saveOpts();
+                render();
+            } else if (b.dataset.token) insertToken(b.dataset.token);
+            else if (b.dataset.ch) {
+                const c = ctx();
+                S.chosen = new Set(b.dataset.ch === 'all' && c.info ? c.info.chapters.map((_, i) => i) : []);
+                for (const cb of document.querySelectorAll('[data-chapter]')) cb.checked = S.chosen.has(Number(cb.dataset.chapter));
+                render();
+            }
+        }
+
+        function bind() {
+            const links = $('links');
+            let timer = 0;
+            links.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(syncLinks, 200); });
+            $('btn-paste').addEventListener('click', pasteLinks);
+            $('btn-clear').addEventListener('click', () => { links.value = ''; syncLinks(); links.focus(); });
+            $('txt-file').addEventListener('change', async (e) => {
+                for (const f of e.target.files) appendLinks(await f.text());
+                e.target.value = '';
+            });
+
+            const box = $('linkbox');
+            box.addEventListener('dragover', (e) => { e.preventDefault(); box.classList.add('drag-over'); });
+            box.addEventListener('dragleave', (e) => { if (!box.contains(e.relatedTarget)) box.classList.remove('drag-over'); });
+            box.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                box.classList.remove('drag-over');
+                const files = [...e.dataTransfer.files].filter((f) => /\.txt$/i.test(f.name) || f.type === 'text/plain');
+                if (files.length) { for (const f of files) appendLinks(await f.text()); return; }
+                appendLinks(e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain'));
+            });
+
+            const opts = document.querySelector('.panel-opts');
+            opts.addEventListener('input', onOption);
+            opts.addEventListener('change', onOption);
+            opts.addEventListener('click', onOptionClick);
+            $('btn-go').addEventListener('click', go);
+            $('btn-copy').addEventListener('click', copyCommand);
+            $('btn-clear-jobs').addEventListener('click', async () => {
+                try { await api('/api/jobs/clear', {}); } catch (e) { flash(e.message); }
+                pollJobs();
+            });
+            document.addEventListener('keydown', (e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); go(); }
+            });
+        }
+
+        async function init() {
+            bind();
+            S.helper = await detectHelper();
+            if (S.helper) {
+                $('cmd-details').open = false;
+                $('cmd-title').textContent = 'Or run it yourself in Terminal';
+                $('folder-label').textContent = 'Save into';
+                // A long --dir keeps its informative end: …/Videos/Lectures/
+                const dir = S.helper.dir.replace(/[\\/]?$/, S.helper.platform === 'win32' ? '\\' : '/');
+                $('folder-base').hidden = false;
+                $('folder-base').textContent = dir.length > 28 ? `…${dir.slice(-27)}` : dir;
+                $('folder-base').title = dir;
+                $('folder').placeholder = 'a subfolder, if you like';
+                $('folder-hint').textContent = 'The helper saves here. For another folder, restart it with --dir.';
+                pollJobs();
+            } else {
+                $('folder').placeholder = '~/Downloads';
+                $('folder-hint').textContent = 'A folder on your computer. ~ is your home folder.';
+                if (IS_WIN) $('run-line').textContent = 'node $HOME\\Downloads\\video-downloader-helper.mjs';
+            }
+            writeOpts();
+            syncLinks();
+        }
+
+        init();
+    })();
+    </script>
+</body>
+
+</html>
