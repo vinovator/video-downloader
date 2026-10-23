@@ -177,6 +177,8 @@ const many = Array.from({ length: 60 }, (_, i) => `https://youtu.be/${String(i).
 const parsed = P.parseLinks([ID, `https://youtu.be/${ID}`, 'https://www.youtube.com/playlist?list=PL0123456789', 'hello', ...many].join('\n'));
 expect('links: duplicates dropped, playlists counted, the first 50 kept',
     [parsed.items.length, parsed.items[0].id, parsed.extra, parsed.playlists, parsed.bad], [50, ID, 11, 1, ['hello']]);
+const mixed = P.parseLinks(`notes for later\nhttps://youtu.be/${ID} not a link, ${ID}x\nhttps://youtu.be/${ID}`);
+expect('words that are not links are reported as phrases, per line', [mixed.items.length, mixed.bad], [1, ['notes for later', `not a link ${ID}x`]]);
 
 // The page's copy of videoId() must read links as the helper does. The self-test
 // compares the two sources; this compares what they return.

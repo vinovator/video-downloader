@@ -21,7 +21,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.0.3';
+const VERSION = '1.0.4';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 // Only a git clone serves the files beside it. A downloaded helper usually sits
 // in Downloads, where any site can drop a file, so it trusts nothing next to it.
@@ -387,7 +387,9 @@ function onLine(job, line) {
     else if (line.startsWith('[Merger]')) { job.stage = 'Merging video and audio'; job.percent = null; }
     else if (line.startsWith('[ExtractAudio]')) { job.stage = 'Converting the audio'; job.percent = null; }
     else if (line.startsWith('[VideoRemuxer]')) job.stage = 'Finishing the file';
-    else if (line.startsWith('[ThumbnailsConvertor]') || line.startsWith('[EmbedThumbnail]')) job.stage = 'Adding cover art';
+    // The thumbnail is converted before the download starts, and embedded at the end.
+    else if (line.startsWith('[ThumbnailsConvertor]')) job.stage = 'Preparing the thumbnail';
+    else if (line.startsWith('[EmbedThumbnail]')) job.stage = 'Adding cover art';
     else if (line.startsWith('[Metadata]')) job.stage = 'Writing tags and chapters';
     else if ((m = line.match(/^\[SplitChapters\] Chapter (\d+); Destination: (.+)$/))) {
         job.stage = `Splitting chapter ${Number(m[1])}`;

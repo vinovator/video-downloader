@@ -38,7 +38,9 @@ Each colour is a CSS variable on `:root`, written once as `light-dark(light, dar
 needs Chrome or Edge 123, Firefox 120 or Safari 17.5. The switch saves a choice in
 `video-downloader-theme` only while it differs from the device, and a script in `<head>`
 applies it before first paint. Fonts are the system stack, so no font host is contacted and
-the CSP names none. No text is smaller than 13px, except monospace at 12.8px.
+the CSP names none. No text is smaller than 13px, except monospace at 12.8px, and text
+contrast meets WCAG AA (4.5:1, or 3:1 for large text) in both themes. That is why the ribbon
+starts at `#e11d48`: from a lighter red its small white text drops below 4.5:1.
 
 Layout: presets, what to save, format and quality stay open; the other options fold into
 `details.opt` sections whose closed summary (`renderSummaries()`) shows the current choice,

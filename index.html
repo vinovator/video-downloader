@@ -46,7 +46,9 @@
             --primary-ink: light-dark(#be123c, #fb7185);
             --primary-soft: light-dark(#fff1f2, #3a1622);
             --primary-ring: light-dark(rgba(225, 29, 72, 0.18), rgba(251, 113, 133, 0.28));
-            --ribbon-a: light-dark(#f43f5e, #e11d48);
+            /* The ribbon starts no lighter than #e11d48, where its small white text still
+               reaches 4.5:1 contrast; from #f43f5e it only reached 3.7:1. */
+            --ribbon-a: #e11d48;
             --ribbon-b: light-dark(#be123c, #9f1239);
             --ribbon-shadow: 0 1px 0 light-dark(rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.4)), 0 4px 18px light-dark(rgba(225, 29, 72, 0.22), rgba(0, 0, 0, 0.45));
             --bg-body: light-dark(#F3F4F6, #0d1117);
@@ -55,6 +57,7 @@
             --bg-control: light-dark(#ffffff, #0d1117);
             --seg-track: light-dark(#E5E7EB, #0d1117);
             --seg-on: light-dark(#ffffff, #2a313c);
+            --seg-text: light-dark(#4B5563, #9da7b3);
             --text-main: light-dark(#1F2937, #e6edf3);
             --text-muted: light-dark(#6B7280, #9da7b3);
             --border: light-dark(#E5E7EB, #262c36);
@@ -167,7 +170,7 @@
 
         .ribbon-tag {
             font-size: 0.8125rem;
-            color: rgba(255, 255, 255, 0.88);
+            color: #ffffff;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -417,7 +420,7 @@
             border-radius: 7px;
             font-size: 0.8125rem;
             font-weight: 600;
-            color: var(--text-muted);
+            color: var(--seg-text);
             transition: color 0.15s, background-color 0.15s;
         }
 
@@ -819,6 +822,7 @@
         }
 
         .helper-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--success); }
+        .helper-line code { color: var(--text-main); }
 
         .setup details { margin-top: 8px; }
         .setup summary { cursor: pointer; font-weight: 600; }
@@ -1462,19 +1466,25 @@
             const seen = new Set();
             let playlists = 0;
             let extra = 0;
-            for (const raw of text.split(/[\s,]+/).filter(Boolean)) {
-                const id = videoId(raw);
-                if (!id) {
-                    if (/youtu/i.test(raw) && /[?&]list=/.test(raw)) playlists++;
-                    else bad.push(raw);
-                    continue;
+            for (const line of text.split(/\r?\n/)) {
+                // Words in a row that are not links are reported as one phrase, not word by word.
+                let words = null;
+                for (const raw of line.split(/[\s,]+/).filter(Boolean)) {
+                    const id = videoId(raw);
+                    const playlist = !id && /youtu/i.test(raw) && /[?&]list=/.test(raw);
+                    if (!id && !playlist) {
+                        if (words) words.push(raw); else bad.push(words = [raw]);
+                        continue;
+                    }
+                    words = null;
+                    if (playlist) { playlists++; continue; }
+                    if (seen.has(id)) continue;
+                    seen.add(id);
+                    if (items.length >= MAX_LINKS) { extra++; continue; }
+                    items.push({ id, url: `https://www.youtube.com/watch?v=${id}`, start: linkStart(raw) });
                 }
-                if (seen.has(id)) continue;
-                seen.add(id);
-                if (items.length >= MAX_LINKS) { extra++; continue; }
-                items.push({ id, url: `https://www.youtube.com/watch?v=${id}`, start: linkStart(raw) });
             }
-            return { items, bad, playlists, extra };
+            return { items, bad: bad.map((w) => w.join(' ')), playlists, extra };
         }
 
         // ------------------------------------------------------------ formatting
@@ -2181,7 +2191,7 @@
             $('sub-range').hidden = o.part !== 'range';
             $('sub-split').hidden = o.part !== 'split' || !c.direct;
             const r = range(o, c);
-            $('start').classList.toggle('invalid', o.part === 'range' && Number.isNaN(parseTime(o.start)));
+            $('start').classList.toggle('invalid', o.part === 'range' && (Number.isNaN(parseTime(o.start)) || /^The video is only/.test(r.error)));
             $('end').classList.toggle('invalid', o.part === 'range' && (Number.isNaN(parseTime(o.end)) || /must come after/.test(r.error)));
             $('part-hint').textContent = partHint(o, c, blocks, r);
 
@@ -2237,6 +2247,8 @@
                 badRate ? 'check the speed limit' : rateValue(o.rate) && `limit ${rateValue(o.rate)}/s`,
                 o.overwrite && 'replace existing files',
                 o.safe && (o.safe === 'ascii' ? 'ASCII names' : 'Windows-safe names'),
+                // "Command for" only shows without the helper, and its default follows the device.
+                !c.direct && o.shell !== DEFAULTS.shell && (o.shell === 'pwsh' ? 'PowerShell command' : 'Terminal command'),
             ].filter(Boolean);
             set('sum-adv', adv.length ? cap1(adv.join(' · ')) : 'Defaults', badRate);
         }
@@ -2302,10 +2314,13 @@
             box.replaceChildren(...parts);
         }
 
+        // The format's name as the Format menu shows it: Opus and WebM, not OPUS and WEBM.
+        const formatName = (fmt) => [...V_FORMATS, ...A_FORMATS].find(([v]) => v === fmt)[1].replace(/ \(.*\)$/, '');
+
         function summaryText(o, total) {
             if (!S.items.length) return '';
             const fmt = o.mode === 'audio' ? o.afmt : o.vfmt;
-            const bits = [o.mode === 'audio' ? `${fmt.toUpperCase()} audio` : `${fmt.toUpperCase()}${o.mode === 'video' ? ', no sound' : ''}`];
+            const bits = [o.mode === 'audio' ? `${formatName(fmt)} audio` : `${formatName(fmt)}${o.mode === 'video' ? ', no sound' : ''}`];
             if (o.mode !== 'audio') {
                 bits.push(o.cap === 'best' ? (fmt === 'mp4' && o.compat ? 'up to 1080p' : 'best quality') : `up to ${o.cap}p`);
             }
@@ -2373,7 +2388,7 @@
             if (j.status === 'queued') return 'Waiting';
             if (j.status === 'cancelled') return 'Cancelled';
             if (j.status === 'error') return 'Failed';
-            if (j.status === 'running' && j.percent != null && /^Downloading (audio|video)?$/.test(j.stage)) return `${j.stage} · ${Math.floor(j.percent)}%`;
+            if (j.status === 'running' && j.percent != null && /^Downloading(?: audio| video)?$/.test(j.stage)) return `${j.stage} · ${Math.floor(j.percent)}%`;
             return j.stage;
         }
 
@@ -2663,8 +2678,9 @@
             });
             $('btn-theme').addEventListener('click', switchTheme);
             matchMedia('(prefers-color-scheme: dark)').addEventListener('change', renderTheme);
+            // A held-down shortcut repeats; only the first press counts, so nothing is queued twice.
             document.addEventListener('keydown', (e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); go(); }
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); if (!e.repeat) go(); }
             });
         }
 
