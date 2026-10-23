@@ -21,8 +21,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.0.1';
+const VERSION = '1.0.2';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+// Only a git clone serves the files beside it. A downloaded helper usually sits
+// in Downloads, where any site can drop a file, so it trusts nothing next to it.
+const CLONE = existsSync(path.join(HERE, '.git'));
 const LIVE_PAGE = 'https://vinovator.github.io/video-downloader/';
 const PAGE_MARKER = '<meta name="app" content="video-downloader">';
 const DEFAULT_PORT = 38917;
@@ -86,8 +89,10 @@ const FIELD_RE = /%\((?:title|channel|uploader|id|height|ext|section_title|secti
 function okTemplate(v) {
     const t = v.startsWith('chapter:') ? v.slice('chapter:'.length) : v;
     if (!t || t.length > 400 || /[\x00-\x1f\x7f\\]/.test(t)) return false;
-    // Relative only: the helper sets the folder itself with -P.
-    if (/^(?:\/|~|[A-Za-z]:)/.test(t)) return false;
+    // Relative only: the helper sets the folder itself with -P. yt-dlp also
+    // expands a leading ~ and any $NAME or ${NAME} in the template, so those
+    // could point outside the folder too.
+    if (/^(?:\/|~|[A-Za-z]:)/.test(t) || /\$[\w{]/.test(t)) return false;
     if (t.split('/').some((seg) => seg === '' || seg === '.' || seg === '..')) return false;
     // Every % must be an escaped %% or one of the fields above.
     return !t.replace(/%%/g, '').replace(FIELD_RE, '').includes('%');
@@ -484,11 +489,14 @@ const ICONS = { '/favicon.svg': 'image/svg+xml', '/favicon.ico': 'image/x-icon',
 // The page may only be framed by itself, so no other site can overlay it and steer clicks.
 const PAGE_HEADERS = { 'X-Frame-Options': 'DENY', 'Content-Security-Policy': "frame-ancestors 'none'" };
 
+// Everything but the page is sandboxed, so nothing else opened from here as a
+// document (an SVG with a script, say) can run on this origin. The page's
+// PAGE_HEADERS replace this policy with its own.
 function send(res, status, body, type = 'application/json; charset=utf-8', extra = {}) {
     const data = typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body);
     res.writeHead(status, {
         'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
-        'Referrer-Policy': 'no-referrer', ...extra,
+        'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': "default-src 'none'; sandbox", ...extra,
     });
     res.end(data);
 }
@@ -497,9 +505,11 @@ let cachedPage = null;
 
 async function pageHtml() {
     // From a clone, the page beside this file, read fresh so edits show on reload.
-    // The marker stops an unrelated index.html in, say, Downloads being served.
+    // Nowhere else: whatever is served runs on this origin and can read the key,
+    // and an index.html in Downloads may not be ours. The marker stops another
+    // project's page being served if this file is copied into its clone.
     const local = path.join(HERE, 'index.html');
-    if (existsSync(local)) {
+    if (CLONE && existsSync(local)) {
         const html = readFileSync(local, 'utf8');
         if (html.includes(PAGE_MARKER)) return html;
     }
@@ -558,7 +568,8 @@ async function handle(req, res) {
     if (!pathname.startsWith('/api/')) {
         if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, { error: 'Method not allowed.' });
         if (pathname === '/' || pathname === '/index.html') return send(res, 200, await pageHtml(), 'text/html; charset=utf-8', PAGE_HEADERS);
-        const icon = ICONS[pathname] && path.join(HERE, pathname.slice(1));
+        // Icons only from a clone, like the page.
+        const icon = CLONE && ICONS[pathname] && path.join(HERE, pathname.slice(1));
         if (icon && existsSync(icon)) return send(res, 200, readFileSync(icon), ICONS[pathname], { 'Cache-Control': 'max-age=3600' });
         return send(res, 404, 'Not found', 'text/plain; charset=utf-8');
     }
@@ -663,6 +674,7 @@ function selfTest() {
         ['-o', 'Lectures/%(upload_date>%Y-%m-%d)s %(channel)s - %(title)s [%(id)s] %(height)sp.%(ext)s'],
         ['-o', '100%% honest.%(ext)s', '--cookies-from-browser', 'chrome', '-r', '4.2M', '--force-overwrites', '--restrict-filenames'],
         ['--write-thumbnail', '--write-description', '--windows-filenames', '--embed-chapters'],
+        ['-o', 'Costs $ 5, not $.%(ext)s'],
     ];
     for (const a of allowed) expect(`options allowed: ${a.join(' ')}`, checkArgs(a), null);
 
@@ -672,6 +684,7 @@ function selfTest() {
         ['-o', '/etc/passwd'], ['-o', '~/x.%(ext)s'], ['-o', '../x.%(ext)s'], ['-o', 'a/../../x'], ['-o', 'a//b'],
         ['-o', 'C:x'], ['-o', 'a\\b'], ['-o', '50% off.%(ext)s'], ['-o', '%(filepath)s'], ['-o', '%(title)r'],
         ['-o', 'x\nnext'], ['-o'], ['-o', 'chapter:'], ['-f', 'bv*;ls'], ['-f', 'best'], ['-S', 'res:1080;id'],
+        ['-o', '$HOME/x.%(ext)s'], ['-o', '${HOME}x.%(ext)s'], ['-o', 'chapter:a/$TMPDIR.%(ext)s'],
         ['--cookies-from-browser', 'chrome:../../x'], ['--download-sections', 'intro'], ['--download-sections', '*1:00'],
         ['--audio-format', 'exe'], ['--audio-quality', '-1'], ['-r', '1e9'], ['--split-chapters', 'yes'],
         [42], 'not a list', new Array(61).fill('-x'),

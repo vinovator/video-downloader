@@ -1,6 +1,7 @@
 # No build step: GitHub Pages serves this repo exactly as committed. CI checks
 # the helper's security boundary (the link parser and the option allowlist, and that
-# the page's copy of the parser still matches), and that the page's script parses.
+# the page's copy of the parser still matches), that the helper accepts every option
+# the page can build, and that the page's scripts parse.
 name: CI
 
 on:
@@ -22,7 +23,10 @@ jobs:
       - name: Helper self-test
         run: node helper.mjs --self-test
 
-      - name: Page script parses
+      - name: Page options against the allowlist
+        run: node tests/page.test.mjs
+
+      - name: Page scripts parse
         run: |
-          node -e 'const fs = require("fs"); const html = fs.readFileSync("index.html", "utf8"); fs.writeFileSync("page.js", [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1]);'
-          node --check page.js
+          node -e 'const fs = require("fs"); const html = fs.readFileSync("index.html", "utf8"); [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].forEach((m, i) => fs.writeFileSync("page-" + i + ".js", m[1]));'
+          for f in page-*.js; do node --check "$f" || exit 1; done

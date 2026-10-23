@@ -14,7 +14,7 @@
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <!-- connect-src: oEmbed for titles, and 'self' for the helper when it serves
          this page from 127.0.0.1. Nothing else is fetched. -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.ytimg.com; connect-src 'self' https://www.youtube.com; object-src 'none'; base-uri 'self'; form-action 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.ytimg.com; connect-src 'self' https://www.youtube.com; object-src 'none'; base-uri 'self'; form-action 'none'">
     <title>Video Downloader | Vinoth Haldorai</title>
     <meta name="description" content="Paste YouTube links, choose the format, quality, file name, clip or chapters and cover art, and save them to your computer with yt-dlp.">
     <meta name="author" content="Vinoth Haldorai">
@@ -23,19 +23,33 @@
     <meta property="og:url" content="https://vinovator.github.io/video-downloader/">
     <meta property="og:title" content="Video Downloader | Vinoth Haldorai">
     <meta property="og:description" content="Paste YouTube links, choose the format, quality, file name, clip or chapters and cover art, and save them to your computer with yt-dlp.">
-    <meta name="theme-color" content="#e11d48">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- The browser's toolbar matches the ribbon; renderTheme() keeps both in step with the switch. -->
+    <meta name="theme-color" content="#e11d48" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#be123c" media="(prefers-color-scheme: dark)">
+    <script>
+        // A saved light or dark choice, applied before the page is drawn so it never flashes the other one.
+        try {
+            const theme = localStorage.getItem('video-downloader-theme');
+            if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+        } catch { /* storage blocked: follow the device */ }
+    </script>
     <style>
         :root {
+            color-scheme: light dark;
             --primary: #e11d48;
-            --primary-dark: #be123c;
+            --primary-hover: #be123c;
+            --primary-ink: #be123c;
             --primary-soft: #fff1f2;
             --primary-ring: rgba(225, 29, 72, 0.18);
             --ribbon-a: #f43f5e;
             --ribbon-b: #be123c;
+            --ribbon-shadow: 0 1px 0 rgba(0, 0, 0, 0.06), 0 4px 18px rgba(225, 29, 72, 0.22);
             --bg-body: #F3F4F6;
             --bg-surface: #ffffff;
             --bg-subtle: #F9FAFB;
+            --bg-control: #ffffff;
+            --seg-track: var(--border);
+            --seg-on: #ffffff;
             --text-main: #1F2937;
             --text-muted: #6B7280;
             --border: #E5E7EB;
@@ -43,25 +57,120 @@
             --danger: #DC2626;
             --danger-bg: #FEF2F2;
             --danger-text: #991B1B;
+            --danger-border: #FECACA;
             --warn: #F59E0B;
             --warn-bg: #FFFBEB;
             --warn-text: #92400E;
             --success: #10B981;
             --success-bg: #ECFDF5;
             --success-text: #065F46;
+            --success-border: #A7F3D0;
             --info: #3B82F6;
             --info-bg: #EFF6FF;
             --info-text: #1E40AF;
+            --code-bg: rgba(0, 0, 0, 0.05);
+            --code-on-alert: rgba(255, 255, 255, 0.75);
             --term-bg: #111827;
             --term-line: #374151;
             --term-text: #E5E7EB;
             --term-muted: #9CA3AF;
+            --term-border: transparent;
+            --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
             --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
             --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
             --radius: 12px;
             --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
         }
+
+        /* Dark colours: the device is dark and Light was not chosen, or Dark was chosen.
+           The neutrals and alert tints are the Event Invitation Generator's, so the apps look related. */
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --primary-ink: #fb7185;
+                --primary-soft: #3a1622;
+                --primary-ring: rgba(251, 113, 133, 0.28);
+                --ribbon-a: #e11d48;
+                --ribbon-b: #9f1239;
+                --ribbon-shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 4px 18px rgba(0, 0, 0, 0.45);
+                --bg-body: #0d1117;
+                --bg-surface: #161b22;
+                --bg-subtle: #1c2129;
+                --bg-control: #0d1117;
+                --seg-track: #0d1117;
+                --seg-on: #2a313c;
+                --text-main: #e6edf3;
+                --text-muted: #9da7b3;
+                --border: #262c36;
+                --border-strong: #3a424e;
+                --danger: #f85149;
+                --danger-bg: #3a1c1c;
+                --danger-text: #ff8a80;
+                --danger-border: #6e2b2b;
+                --warn: #d29922;
+                --warn-bg: #2d2412;
+                --warn-text: #f3c56b;
+                --success: #3fb950;
+                --success-bg: #11291d;
+                --success-text: #4ccf8d;
+                --success-border: #1f5f3d;
+                --info: #4493f8;
+                --info-bg: #10263d;
+                --info-text: #9ccaff;
+                --code-bg: rgba(255, 255, 255, 0.08);
+                --code-on-alert: rgba(255, 255, 255, 0.1);
+                --term-bg: #0a0d12;
+                --term-border: #30363d;
+                --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239da7b3' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+                --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+                --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.45);
+                --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px #2c333d;
+            }
+        }
+
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --primary-ink: #fb7185;
+            --primary-soft: #3a1622;
+            --primary-ring: rgba(251, 113, 133, 0.28);
+            --ribbon-a: #e11d48;
+            --ribbon-b: #9f1239;
+            --ribbon-shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 4px 18px rgba(0, 0, 0, 0.45);
+            --bg-body: #0d1117;
+            --bg-surface: #161b22;
+            --bg-subtle: #1c2129;
+            --bg-control: #0d1117;
+            --seg-track: #0d1117;
+            --seg-on: #2a313c;
+            --text-main: #e6edf3;
+            --text-muted: #9da7b3;
+            --border: #262c36;
+            --border-strong: #3a424e;
+            --danger: #f85149;
+            --danger-bg: #3a1c1c;
+            --danger-text: #ff8a80;
+            --danger-border: #6e2b2b;
+            --warn: #d29922;
+            --warn-bg: #2d2412;
+            --warn-text: #f3c56b;
+            --success: #3fb950;
+            --success-bg: #11291d;
+            --success-text: #4ccf8d;
+            --success-border: #1f5f3d;
+            --info: #4493f8;
+            --info-bg: #10263d;
+            --info-text: #9ccaff;
+            --code-bg: rgba(255, 255, 255, 0.08);
+            --code-on-alert: rgba(255, 255, 255, 0.1);
+            --term-bg: #0a0d12;
+            --term-border: #30363d;
+            --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239da7b3' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+            --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.45);
+            --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px #2c333d;
+        }
+
+        :root[data-theme="light"] { color-scheme: light; }
 
         * {
             margin: 0;
@@ -70,7 +179,7 @@
         }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background-color: var(--bg-body);
             color: var(--text-main);
             min-height: 100vh;
@@ -113,7 +222,7 @@
             gap: 16px;
             padding: 0 24px;
             z-index: 100;
-            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06), 0 4px 18px rgba(225, 29, 72, 0.22);
+            box-shadow: var(--ribbon-shadow);
         }
 
         .ribbon-brand {
@@ -141,7 +250,15 @@
             text-overflow: ellipsis;
         }
 
-        .ribbon-back {
+        .ribbon-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .ribbon-back,
+        .ribbon-theme {
             display: inline-flex;
             align-items: center;
             gap: 6px;
@@ -159,15 +276,26 @@
             transition: background-color 0.15s, color 0.15s, border-color 0.15s;
         }
 
-        .ribbon-back:hover {
+        .ribbon-back:hover,
+        .ribbon-theme:hover {
             background: rgba(255, 255, 255, 0.18);
             color: #ffffff;
             border-color: rgba(255, 255, 255, 0.5);
         }
 
-        .ribbon-back:focus-visible {
+        .ribbon-back:focus-visible,
+        .ribbon-theme:focus-visible {
             outline: 2px solid #ffffff;
             outline-offset: 2px;
+        }
+
+        /* The light and dark switch: a round button beside the Apps link. */
+        .ribbon-theme {
+            justify-content: center;
+            width: 32px;
+            padding: 0;
+            font-family: inherit;
+            cursor: pointer;
         }
 
         .ribbon-back svg { flex-shrink: 0; transition: transform 0.15s; }
@@ -222,6 +350,7 @@
             .ribbon-tag { font-size: 0.72rem; }
             .ribbon-back span { display: none; }
             .ribbon-back { padding: 7px 9px; min-width: 44px; min-height: 44px; justify-content: center; }
+            .ribbon-theme { width: 44px; min-height: 44px; }
             .panel-links, .panel-opts, .panel-out { padding-left: 16px; padding-right: 16px; }
         }
 
@@ -284,14 +413,14 @@
             font-family: inherit;
             font-size: 0.88rem;
             color: var(--text-main);
-            background-color: white;
+            background-color: var(--bg-control);
             transition: border-color 0.15s, box-shadow 0.15s;
         }
 
         select {
             appearance: none;
             padding-right: 32px;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+            background-image: var(--select-arrow);
             background-repeat: no-repeat;
             background-position: right 10px center;
             background-size: 14px;
@@ -344,7 +473,7 @@
         .seg {
             display: flex;
             gap: 4px;
-            background: var(--border);
+            background: var(--seg-track);
             padding: 4px;
             border-radius: 10px;
         }
@@ -370,8 +499,8 @@
         }
 
         .seg input:checked + span {
-            background: white;
-            color: var(--primary-dark);
+            background: var(--seg-on);
+            color: var(--primary-ink);
             box-shadow: var(--shadow-sm);
         }
 
@@ -384,7 +513,7 @@
             padding: 5px 11px;
             border-radius: 999px;
             border: 1px solid var(--border-strong);
-            background: white;
+            background: var(--bg-control);
             font-family: inherit;
             font-size: 0.76rem;
             font-weight: 600;
@@ -393,7 +522,7 @@
             transition: background-color 0.15s, border-color 0.15s, color 0.15s;
         }
 
-        .chip:hover { border-color: var(--primary); color: var(--primary-dark); }
+        .chip:hover { border-color: var(--primary); color: var(--primary-ink); }
 
         .chip.is-active {
             background: var(--primary);
@@ -413,7 +542,7 @@
             padding: 8px 11px;
             border: 1px solid var(--border);
             border-radius: 8px;
-            background: white;
+            background: var(--bg-control);
             font-weight: 500;
             cursor: pointer;
             transition: border-color 0.15s, background-color 0.15s;
@@ -467,7 +596,7 @@
             padding: 2px 8px;
             border-radius: 999px;
             border: 1px dashed var(--border-strong);
-            background: white;
+            background: var(--bg-control);
             font-family: inherit;
             font-size: 0.72rem;
             font-weight: 500;
@@ -475,7 +604,7 @@
             cursor: pointer;
         }
 
-        .token:hover:not(:disabled) { border-color: var(--primary); color: var(--primary-dark); }
+        .token:hover:not(:disabled) { border-color: var(--primary); color: var(--primary-ink); }
         .token:disabled { opacity: 0.45; cursor: not-allowed; }
 
         .folder-row {
@@ -483,7 +612,7 @@
             align-items: center;
             border: 1px solid var(--border);
             border-radius: 7px;
-            background: white;
+            background: var(--bg-control);
             transition: border-color 0.15s, box-shadow 0.15s;
         }
 
@@ -504,7 +633,7 @@
         .advanced {
             border: 1px solid var(--border);
             border-radius: 10px;
-            background: white;
+            background: var(--bg-control);
         }
 
         .advanced summary {
@@ -522,7 +651,7 @@
         .linkbox {
             border: 1.5px dashed var(--border-strong);
             border-radius: 10px;
-            background: white;
+            background: var(--bg-control);
             padding: 10px 12px;
             transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
         }
@@ -581,7 +710,7 @@
             padding: 8px;
             border: 1px solid var(--border);
             border-radius: 10px;
-            background: white;
+            background: var(--bg-control);
         }
 
         .thumb {
@@ -648,7 +777,7 @@
         }
 
         .btn:hover:not(:disabled) {
-            background: var(--primary-dark);
+            background: var(--primary-hover);
             transform: translateY(-1px);
             box-shadow: var(--shadow-md);
         }
@@ -662,7 +791,7 @@
             padding: 5px 11px;
             border: 1px solid var(--border-strong);
             border-radius: 7px;
-            background: white;
+            background: var(--bg-control);
             color: var(--text-main);
             font-family: inherit;
             font-size: 0.78rem;
@@ -678,7 +807,7 @@
             background: none;
             border: 0;
             padding: 0;
-            color: var(--primary-dark);
+            color: var(--primary-ink);
             font-family: inherit;
             font-size: 0.8rem;
             font-weight: 600;
@@ -729,14 +858,14 @@
         .setup details { margin-top: 8px; }
         .setup summary { cursor: pointer; font-weight: 600; }
         .setup ol { margin: 8px 0 2px; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
-        .setup code { background: rgba(255, 255, 255, 0.75); }
+        .setup code { background: var(--code-on-alert); }
         .setup a { color: inherit; font-weight: 600; }
         .setup .os { display: block; }
 
         code {
             font-family: var(--mono);
             font-size: 0.85em;
-            background: rgba(0, 0, 0, 0.05);
+            background: var(--code-bg);
             padding: 1px 5px;
             border-radius: 4px;
             word-break: break-word;
@@ -745,7 +874,7 @@
         kbd {
             font-family: var(--mono);
             font-size: 0.78em;
-            background: white;
+            background: var(--bg-control);
             border: 1px solid var(--border);
             border-bottom-width: 2px;
             padding: 1px 5px;
@@ -784,6 +913,7 @@
 
         .cmd {
             border-radius: 10px;
+            border: 1px solid var(--term-border);
             background: var(--term-bg);
             color: var(--term-text);
             margin-bottom: 4px;
@@ -867,11 +997,11 @@
             padding: 12px 14px;
             border: 1px solid var(--border);
             border-radius: 10px;
-            background: white;
+            background: var(--bg-control);
         }
 
-        .job.is-done { border-color: #A7F3D0; }
-        .job.is-error { border-color: #FECACA; background: var(--danger-bg); }
+        .job.is-done { border-color: var(--success-border); }
+        .job.is-error { border-color: var(--danger-border); background: var(--danger-bg); }
         .job.is-cancelled { opacity: 0.7; }
 
         .job-top {
@@ -951,7 +1081,7 @@
             text-align: center;
         }
 
-        .footer a { color: var(--primary-dark); text-decoration: none; font-weight: 500; }
+        .footer a { color: var(--primary-ink); text-decoration: none; font-weight: 500; }
         .footer a:hover { text-decoration: underline; }
 
         @media (prefers-reduced-motion: reduce) {
@@ -966,13 +1096,26 @@
             <span class="ribbon-name">Video Downloader</span>
             <span class="ribbon-tag">Save YouTube videos, or just their audio, with the options you choose.</span>
         </div>
-        <a href="https://vinothhaldorai.com/apps/" class="ribbon-back" title="Back to Vinoth Haldorai's apps">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <line x1="19" y1="12" x2="5" y2="12"/>
-                <polyline points="12 19 5 12 12 5"/>
-            </svg>
-            <span>Apps</span>
-        </a>
+        <div class="ribbon-actions">
+            <!-- Sun and moon from Lucide (https://lucide.dev), ISC licence. The icon shows where a click goes. -->
+            <button type="button" class="ribbon-theme" id="btn-theme" aria-label="Switch between light and dark">
+                <svg id="theme-sun" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+                    <circle cx="12" cy="12" r="4"/>
+                    <path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/>
+                    <path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+                </svg>
+                <svg id="theme-moon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+                </svg>
+            </button>
+            <a href="https://vinothhaldorai.com/apps/" class="ribbon-back" title="Back to Vinoth Haldorai's apps">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="19" y1="12" x2="5" y2="12"/>
+                    <polyline points="12 19 5 12 12 5"/>
+                </svg>
+                <span>Apps</span>
+            </a>
+        </div>
     </header>
 
     <div class="container">
@@ -1241,6 +1384,40 @@
         }
 
         const notice = (kind, ...kids) => el('div', { class: `alert alert-${kind}` }, ...kids);
+
+        // ------------------------------------------------------------ theme
+
+        // The device's light or dark setting, unless the switch chose the other one
+        // (<html data-theme>, which the script in <head> applies before first paint).
+        const THEME_KEY = 'video-downloader-theme';
+        const RIBBON = { light: '#e11d48', dark: '#be123c' };
+        const deviceDark = () => matchMedia('(prefers-color-scheme: dark)').matches;
+        const isDark = () => (document.documentElement.dataset.theme || (deviceDark() ? 'dark' : 'light')) === 'dark';
+
+        // Choosing what the device already uses forgets the choice, so the page follows the device again.
+        function switchTheme() {
+            const root = document.documentElement;
+            const next = isDark() ? 'light' : 'dark';
+            const follow = next === (deviceDark() ? 'dark' : 'light');
+            try {
+                if (follow) localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, next);
+            } catch { /* storage blocked: the choice lasts until the page is reloaded */ }
+            if (follow) delete root.dataset.theme; else root.dataset.theme = next;
+            renderTheme();
+        }
+
+        // Like the other buttons, the icon and the label say what a click does:
+        // the sun switches to light, the moon to dark.
+        function renderTheme() {
+            const dark = isDark();
+            $('theme-sun').toggleAttribute('hidden', !dark);
+            $('theme-moon').toggleAttribute('hidden', dark);
+            const label = `Switch to ${dark ? 'light' : 'dark'} theme (now ${dark ? 'dark' : 'light'}`
+                + `${document.documentElement.dataset.theme ? '' : ', following your device'})`;
+            $('btn-theme').setAttribute('aria-label', label);
+            $('btn-theme').title = label;
+            for (const meta of document.querySelectorAll('meta[name="theme-color"]')) meta.content = RIBBON[dark ? 'dark' : 'light'];
+        }
 
         // ------------------------------------------------------------ links
 
@@ -1586,10 +1763,14 @@
 
         const TOKENS = { title: '%(title)s', channel: '%(channel)s', date: '%(upload_date>%Y-%m-%d)s', id: '%(id)s' };
         const UNSAFE = /[\x00-\x1f\x7f/\\:*?"<>|]/g;
+        // yt-dlp expands $NAME, ${NAME} and a leading ~ in the typed part of a
+        // template (not in the fields), which could put the file outside the folder.
+        const EXPANDS = /\$+(?=[\w{])/g;
         const TOKEN_RE = /\{(title|channel|date|id|res)\}|[^{]+|\{/g;
 
-        const tidy = (s) => s.replace(/\s{2,}/g, ' ').replace(/^[\s.]+/, '').trim();
-        const cleanFolder = (s) => tidy(s.replace(/[\x00-\x1f\x7f/\\:*?"<>|%]/g, '')).slice(0, 60);
+        const typed = (s) => s.replace(UNSAFE, '').replace(EXPANDS, '');
+        const tidy = (s) => s.replace(/\s{2,}/g, ' ').replace(/^[\s.~]+/, '').trim();
+        const cleanFolder = (s) => tidy(s.replace(/[\x00-\x1f\x7f/\\:*?"<>|%]/g, '').replace(EXPANDS, '')).slice(0, 60);
 
         function autoName(c) {
             if (!S.items.length) return '';
@@ -1598,13 +1779,14 @@
 
         const nameIsAuto = (o) => !o.nameTouched || !o.name.trim();
 
-        // The name as a yt-dlp output template: tokens become fields, and literal
-        // text loses the characters file systems reject and has its % escaped.
+        // The name as a yt-dlp output template: tokens become fields, and the typed
+        // text loses the characters file systems reject and anything yt-dlp would
+        // expand, and has its % escaped.
         function toTemplate(text, o) {
-            return tidy(text.replace(TOKEN_RE, (m, tok) => {
+            return tidy(typed(text).replace(TOKEN_RE, (m, tok) => {
                 if (tok === 'res') return o.mode === 'audio' ? '' : '%(height)sp';
                 if (tok) return TOKENS[tok];
-                return m.replace(UNSAFE, '').replace(/%/g, '%%');
+                return m.replace(/%/g, '%%');
             }));
         }
 
@@ -1640,7 +1822,7 @@
                 res: o.mode === 'audio' ? '' : picked ? `${picked.height}p` : 'res',
             };
             let t = nameIsAuto(o) ? values.title
-                : tidy(o.name.replace(TOKEN_RE, (m, tok) => (tok ? values[tok] : m.replace(UNSAFE, '')))) || values.title;
+                : tidy(typed(o.name).replace(TOKEN_RE, (m, tok) => (tok ? values[tok] : m))) || values.title;
             if (part === 'range') t += rangeSuffix(range(o, c));
             if (o.safe === 'ascii') t = t.normalize('NFKD').replace(/[^\x20-\x7e]/g, '').replace(/[\s&]+/g, '_');
             const sub = c.direct ? cleanFolder(o.sub) : '';
@@ -1889,8 +2071,9 @@
         }
 
         // A plain play mark for IDs YouTube has no thumbnail for, instead of a broken image.
+        // It has no background of its own, so the thumbnail's shows through in either theme.
         const NO_THUMB = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 68">'
-            + '<rect width="120" height="68" fill="#F3F4F6"/><path d="M53 24v20l17-10z" fill="#D1D5DB"/></svg>');
+            + '<path d="M53 24v20l17-10z" fill="#9CA3AF"/></svg>');
         function noThumb(e) {
             if (e.target.src !== NO_THUMB) e.target.src = NO_THUMB;
         }
@@ -2419,6 +2602,8 @@
                 try { await api('/api/jobs/clear', {}); } catch (e) { flash(e.message); }
                 pollJobs();
             });
+            $('btn-theme').addEventListener('click', switchTheme);
+            matchMedia('(prefers-color-scheme: dark)').addEventListener('change', renderTheme);
             document.addEventListener('keydown', (e) => {
                 if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); go(); }
             });
@@ -2426,6 +2611,7 @@
 
         async function init() {
             bind();
+            renderTheme();
             S.helper = await detectHelper();
             if (S.helper) {
                 $('cmd-details').open = false;
@@ -2448,6 +2634,12 @@
             syncLinks();
         }
 
+        // tests/page.test.mjs runs this script in Node with this set, to check the
+        // yt-dlp options against the helper's allowlist without a browser.
+        if (globalThis.VIDEO_DOWNLOADER_TEST) {
+            Object.assign(globalThis.VIDEO_DOWNLOADER_TEST, { S, DEFAULTS, ENUMS, buildArgs, videoId, parseTime, linkStart, parseLinks, pick, resOf, quote, commandText });
+            return;
+        }
         init();
     })();
     </script>

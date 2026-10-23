@@ -60,20 +60,21 @@ The helper listens only on 127.0.0.1 and does only what the page can ask for.
 - Requests naming any other host are refused, which stops DNS rebinding.
 - Every API call carries a per-run key in a header. The page reads the key from the helper itself; other sites in your browser cannot, and the helper never approves the cross-origin preflight a custom header needs, so they cannot start downloads even blindly.
 - Only YouTube video links are accepted, rebuilt as a plain watch URL.
-- yt-dlp options must be on an allowlist that matches exactly what the page builds. `--exec`, config files, cookie files, paths and plugins are refused, and file names must stay inside the save folder.
+- yt-dlp options must be on an allowlist that matches exactly what the page builds. `--exec`, config files, cookie files, paths and plugins are refused, and file names must stay inside the save folder, so a leading `~` or a `$NAME` that yt-dlp would expand is refused too.
 - yt-dlp runs without a shell, one download at a time, with partial files kept in a temp folder until they are finished.
+- Files next to the helper are served only from a git clone. Downloaded on its own, the helper fetches the page from the live site, so a file that lands in your Downloads folder is never served. Every response other than the page is sandboxed.
 
-`node helper.mjs --self-test` checks the link parser and the allowlist. From a clone it also checks that the page's copy of the link parser still matches the helper's.
+`node helper.mjs --self-test` checks the link parser and the allowlist. From a clone it also checks that the page's copy of the link parser still matches the helper's, and `node tests/page.test.mjs` checks that the helper accepts every option the page can build.
 
 ## Development
 
-There is no build step. Open `index.html` for command mode, or run `node helper.mjs` from a clone: it serves the `index.html` beside it, so edits show on reload. Run on its own after being downloaded, the helper fetches the page once from the live site.
+There is no build step. Open `index.html` for command mode, or run `node helper.mjs` from a git clone: it serves the `index.html` beside it, so edits show on reload. Run on its own after being downloaded, the helper fetches the page once from the live site.
 
-The page's `buildArgs()` is the only place options become yt-dlp flags. When you add an option there, add its flag to `FLAGS` in `helper.mjs` too, or the helper will refuse it.
+The page's `buildArgs()` is the only place options become yt-dlp flags. When you add an option there, add its flag to `FLAGS` in `helper.mjs` too, or the helper will refuse it. `node tests/page.test.mjs` catches a missing one: it runs `buildArgs()` for every option value through the helper's allowlist, and needs only Node, like the helper.
 
 ## Deployment
 
-GitHub Pages serves this repo as committed, from the root of `main`. CI runs the self-test.
+GitHub Pages serves this repo as committed, from the root of `main`. CI runs the self-test and the page test.
 
 ## Licence
 
