@@ -40,12 +40,16 @@ A web page cannot download from YouTube. YouTube refuses requests from other sit
 | What to save | Video and audio, audio only, or video only |
 | Format | MP4, MKV or WebM; M4A, MP3, Opus, FLAC or WAV |
 | Quality | The best available, or a cap from 4K down to 360p, with real sizes in direct mode. "Plays everywhere" keeps MP4 to H.264 and AAC, which YouTube offers up to 1080p. |
-| Part of the video | The whole video, a time range (with an optional exact cut), chosen chapters (direct mode), or every chapter as its own file |
+| Part of the video | The whole video, a time range (with an optional exact cut), or every chapter as its own file. Sponsored segments, self-promotion and subscribe reminders can be cut out with SponsorBlock, except from a time range or a FLAC file. |
 | Metadata | Title, channel and date tags; chapter markers; the thumbnail as cover art; the thumbnail and description as separate files |
 | File name | The video title, or your own text with `{title}`, `{channel}`, `{date}`, `{id}` and `{res}` |
 | Advanced | Use a browser's YouTube sign-in, a speed limit, replacing existing files, ASCII or Windows-safe names |
 
 A timestamp in a link, such as `&t=90`, becomes the start of the time range.
+
+Cutting sponsored segments asks [SponsorBlock](https://sponsor.ajay.app/), a community list, which parts to cut. yt-dlp sends it only the first four characters of a hash of the video ID, not the ID itself.
+
+The options you change less often fold away; closed, each section shows what is chosen inside it. The page follows your device's light or dark setting, and the sun or moon button in the header switches it.
 
 ## When YouTube says no
 

@@ -21,7 +21,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.0.2';
+const VERSION = '1.0.3';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 // Only a git clone serves the files beside it. A downloaded helper usually sits
 // in Downloads, where any site can drop a file, so it trusts nothing next to it.
@@ -76,15 +76,10 @@ export function videoId(input) {
 const SWITCH = null;
 
 const CLOCK = String.raw`\d{1,6}(?::\d{1,2}){0,2}(?:\.\d{1,3})?`;
+// A time range only: the page never asks for sections by chapter title.
 const RANGE_RE = new RegExp(String.raw`^\*${CLOCK}-(?:${CLOCK}|inf)$`);
 
-function okSection(v) {
-    if (RANGE_RE.test(v)) return true;
-    // A chapter title as an anchored regex, escaped by the page.
-    return v.length <= 300 && v.startsWith('^') && v.endsWith('$') && !/[\x00-\x1f\x7f]/.test(v);
-}
-
-const FIELD_RE = /%\((?:title|channel|uploader|id|height|ext|section_title|section_number(?:\+1)?|upload_date(?:>[%A-Za-z0-9 ._-]{1,20})?)\)(?:0?\d?d|s)/g;
+const FIELD_RE = /%\((?:title|channel|uploader|id|height|ext|section_title|section_number|upload_date(?:>[%A-Za-z0-9 ._-]{1,20})?)\)(?:0?\d?d|s)/g;
 
 function okTemplate(v) {
     const t = v.startsWith('chapter:') ? v.slice('chapter:'.length) : v;
@@ -106,7 +101,8 @@ const FLAGS = new Map([
     ['-x', SWITCH],
     ['--audio-format', /^(?:m4a|mp3|opus|flac|wav)$/],
     ['--audio-quality', /^(?:0|[1-9][0-9]{1,2}K)$/],
-    ['--download-sections', okSection],
+    ['--download-sections', RANGE_RE],
+    ['--sponsorblock-remove', /^sponsor,selfpromo,interaction$/],
     ['--force-keyframes-at-cuts', SWITCH],
     ['--split-chapters', SWITCH],
     ['--embed-metadata', SWITCH],
@@ -302,7 +298,7 @@ function addJob(body) {
         splitting: body.args.includes('--split-chapters'),
         label: String(body.label || id).slice(0, 200),
         status: 'queued', stage: 'Waiting', percent: null, downloaded: 0, total: null, speed: null, eta: null,
-        files: [], chapterFiles: [], existing: null, sections: 0, sectionIndex: 0,
+        files: [], chapterFiles: [], existing: null, clip: false,
         error: '', hint: '', warning: '', created: Date.now(), finished: null,
     };
     jobs.push(job);
@@ -369,24 +365,25 @@ function onLine(job, line) {
         job.speed = num(speed);
         job.eta = num(eta);
         job.percent = job.total ? Math.min(100, (job.downloaded / job.total) * 100) : null;
-        // Sections go through ffmpeg, which only reports when each one is done.
-        if (!job.sections) {
+        // A clip goes through ffmpeg, which only reports once it is done.
+        if (!job.clip) {
             job.stage = vcodec === 'none' ? 'Downloading audio'
                 : vcodec && vcodec !== 'NA' ? 'Downloading video' : 'Downloading';
         }
         return;
     }
     let m;
-    if ((m = line.match(/^\[info\] [\w-]+: Downloading (\d+) time ranges?/))) job.sections = Number(m[1]);
+    if (/^\[info\] [\w-]+: Downloading \d+ time ranges?/.test(line)) job.clip = true;
     else if (line.startsWith('[download] Destination:')) {
-        if (job.sections) {
-            job.sectionIndex += 1;
-            job.stage = `Downloading part ${job.sectionIndex} of ${job.sections}`;
+        if (job.clip) {
+            job.stage = 'Downloading the clip';
             job.percent = null;
             job.total = null;
         }
     } else if ((m = line.match(/^\[download\] (.+) has already been downloaded$/))) job.existing = m[1];
     else if (line.startsWith('[youtube]')) job.stage = 'Reading the video page';
+    else if (line.startsWith('[SponsorBlock]')) job.stage = 'Fetching sponsored segments';
+    else if (line.startsWith('[ModifyChapters]')) { job.stage = 'Cutting sponsored segments'; job.percent = null; }
     else if (line.startsWith('[Merger]')) { job.stage = 'Merging video and audio'; job.percent = null; }
     else if (line.startsWith('[ExtractAudio]')) { job.stage = 'Converting the audio'; job.percent = null; }
     else if (line.startsWith('[VideoRemuxer]')) job.stage = 'Finishing the file';
@@ -669,12 +666,12 @@ function selfTest() {
         ['-f', 'bv', '-S', 'res:720', '--remux-video', 'mkv'],
         ['--download-sections', '*1:30-2:45', '--force-keyframes-at-cuts', '-o', 'Clip (1m30s-2m45s).%(ext)s'],
         ['--download-sections', '*1:02:03-inf'],
-        ['--download-sections', '^Rigging & Animation$', '-o', 'Talk - %(section_number+1)02d %(section_title)s.%(ext)s'],
         ['--split-chapters', '-o', '%(title)s.%(ext)s', '-o', 'chapter:%(title)s - chapters/%(section_number)02d %(section_title)s.%(ext)s'],
         ['-o', 'Lectures/%(upload_date>%Y-%m-%d)s %(channel)s - %(title)s [%(id)s] %(height)sp.%(ext)s'],
         ['-o', '100%% honest.%(ext)s', '--cookies-from-browser', 'chrome', '-r', '4.2M', '--force-overwrites', '--restrict-filenames'],
         ['--write-thumbnail', '--write-description', '--windows-filenames', '--embed-chapters'],
         ['-o', 'Costs $ 5, not $.%(ext)s'],
+        ['-f', 'ba', '-x', '--audio-format', 'mp3', '--sponsorblock-remove', 'sponsor,selfpromo,interaction', '--split-chapters'],
     ];
     for (const a of allowed) expect(`options allowed: ${a.join(' ')}`, checkArgs(a), null);
 
@@ -685,6 +682,8 @@ function selfTest() {
         ['-o', 'C:x'], ['-o', 'a\\b'], ['-o', '50% off.%(ext)s'], ['-o', '%(filepath)s'], ['-o', '%(title)r'],
         ['-o', 'x\nnext'], ['-o'], ['-o', 'chapter:'], ['-f', 'bv*;ls'], ['-f', 'best'], ['-S', 'res:1080;id'],
         ['-o', '$HOME/x.%(ext)s'], ['-o', '${HOME}x.%(ext)s'], ['-o', 'chapter:a/$TMPDIR.%(ext)s'],
+        ['--download-sections', '^Intro$'], ['-o', '%(section_number+1)02d.%(ext)s'],
+        ['--sponsorblock-remove', 'all'], ['--sponsorblock-remove', 'sponsor'], ['--sponsorblock-api', 'https://example.com'],
         ['--cookies-from-browser', 'chrome:../../x'], ['--download-sections', 'intro'], ['--download-sections', '*1:00'],
         ['--audio-format', 'exe'], ['--audio-quality', '-1'], ['-r', '1e9'], ['--split-chapters', 'yes'],
         [42], 'not a list', new Array(61).fill('-x'),

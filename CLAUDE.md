@@ -33,11 +33,19 @@ internet; every tool there runs entirely in the browser.
 
 ## Look
 
-Colours are CSS variables on `:root`, with the dark set written twice: for a dark device
-(unless Light was chosen) and for `data-theme="dark"`. The ribbon's switch saves a choice in
+Each colour is a CSS variable on `:root`, written once as `light-dark(light, dark)`;
+`color-scheme` picks the side (the device's, or `data-theme` from the ribbon's switch). That
+needs Chrome or Edge 123, Firefox 120 or Safari 17.5. The switch saves a choice in
 `video-downloader-theme` only while it differs from the device, and a script in `<head>`
 applies it before first paint. Fonts are the system stack, so no font host is contacted and
-the CSP names none.
+the CSP names none. No text is smaller than 13px, except monospace at 12.8px.
+
+Layout: presets, what to save, format and quality stay open; the other options fold into
+`details.opt` sections whose closed summary (`renderSummaries()`) shows the current choice,
+or the problem in the warning colour. Which are open is kept in `video-downloader-open`. The
+download button and summary sit in a bar that sticks to the bottom of the container, which
+is why `.container` uses `overflow: clip`, not `hidden`. A download's progress shows on its
+video's card (`cardJob()`); the Downloads list below is the history.
 
 ## yt-dlp facts learned the hard way (checked against 2026.08.19)
 
@@ -47,9 +55,14 @@ the CSP names none.
   order puts `quality` before `res`, and YouTube's quality ranking then ignores the cap.
 - `res` is the smaller side, so vertical Shorts compare by width. The page's `resOf()` mirrors it.
 - `--print` implies quiet mode and hides the stage lines the helper parses; use `--print-to-file`.
-- `--download-sections` numbers chapters from 0 and `--split-chapters` from 1, hence
-  `%(section_number+1)02d` for chosen chapters.
-- Section downloads go through ffmpeg and report progress only when each part finishes.
+- `--split-chapters` numbers chapters from 1, so the chapter files use `%(section_number)02d`.
+- A time-range clip goes through ffmpeg and reports no progress until it is done.
+- `--sponsorblock-remove` cuts after the audio is converted and before tagging and chapter
+  splitting. Its times are for the whole video, so it cannot cut a time-range clip. It cuts
+  by copying frames, and a FLAC file keeps its uncut length in the header and frame numbers,
+  so the page offers it for neither. WAV, Opus, M4A, MP3, MP4, MKV and WebM cut cleanly.
+- `--remove-chapters` with a time range crashes (`TypeError: unhashable type: 'list'`), and a
+  time range alone never adds the cutting step. The page does not use it.
 - Splitting an Opus file into chapters fails if cover art is embedded, so the page drops
   cover art for that one case. M4A, MP3, FLAC, MP4 and MKV keep it.
 - A file that already exists is not downloaded again, but yt-dlp still re-runs tagging on it.

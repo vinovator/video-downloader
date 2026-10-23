@@ -33,7 +33,7 @@ const show = (v) => (Number.isNaN(v) ? 'NaN' : JSON.stringify(v));
 
 const ID = 'aqz-KE-bpKQ';
 const item = { id: ID, url: `https://www.youtube.com/watch?v=${ID}`, title: 'Big Buck Bunny' };
-// Chapter titles that need escaping in --download-sections.
+// Chapters, for splitting the video into one file per chapter.
 const info = {
     id: ID, title: 'Big Buck Bunny', channel: 'Blender', uploadDate: '20140410', duration: 635, live: 'not_live', formats: [],
     chapters: [
@@ -53,7 +53,7 @@ const CONTEXTS = {
 
 // ------------------------------------------------------------------ the helper accepts what the page builds
 
-const PARTS = ['whole', 'range', 'chapters', 'split'];
+const PARTS = ['whole', 'range', 'split'];
 // Values for the options typed as text. Choices and switches come from the page itself,
 // so a new choice or switch is covered without touching this file.
 const STRINGS = {
@@ -81,7 +81,6 @@ function tryArgs(label, o, c) {
 }
 
 // Every format and part in every situation, changing one option at a time through all its values.
-P.S.chosen = new Set([0, 1, 2]);
 for (const mode of P.ENUMS.mode) {
     const fmtKey = mode === 'audio' ? 'afmt' : 'vfmt';
     for (const fmt of P.ENUMS[fmtKey]) {
@@ -106,9 +105,8 @@ const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 const any = (list) => list[Math.floor(random() * list.length)];
 for (let n = 0; n < 3000; n++) {
     const o = Object.fromEntries(Object.keys(P.DEFAULTS).map((k) => [k, any(tryValues(k))]));
-    P.S.chosen = new Set([0, 1, 2].filter(() => random() < 0.5));
     const where = any(Object.keys(CONTEXTS));
-    tryArgs(`${where}, chapters ${JSON.stringify([...P.S.chosen])}, ${JSON.stringify(o)}`, o, CONTEXTS[where]);
+    tryArgs(`${where}, ${JSON.stringify(o)}`, o, CONTEXTS[where]);
 }
 expect(`the helper accepts every option the page builds (${tried} tried)`, refused.length, 0);
 
@@ -133,14 +131,7 @@ const short = {
 expect('a 1080p cap on a vertical Short takes its 1080x1920 file', P.pick(short, { ...P.DEFAULTS, cap: '1080' }).video.id, '137');
 expect('a 720p cap on a vertical Short takes its 720x1280 file', P.pick(short, { ...P.DEFAULTS, cap: '720' }).video.id, '136');
 
-// --download-sections numbers chapters from 0 and --split-chapters from 1.
-P.S.chosen = new Set([1]);
-const chapterArgs = build({ part: 'chapters' });
-expect('a chosen chapter is matched by its whole title', valuesOf(chapterArgs, '--download-sections'), ['^Rigging & Animation$']);
-expect('chosen chapters are numbered from 1 in file names',
-    valuesOf(chapterArgs, '-o'), ['%(title)s - %(section_number+1)02d %(section_title)s.%(ext)s']);
-P.S.chosen = new Set([2]);
-expect('a chapter title is escaped as a pattern', valuesOf(build({ part: 'chapters' }), '--download-sections'), ['^\\(Part 1\\) \\[HD\\] \\$5\\? \\*$']);
+// --split-chapters numbers the chapters from 1.
 expect('every chapter goes into its own folder, numbered as yt-dlp splits them',
     valuesOf(build({ part: 'split' }), '-o'), ['%(title)s.%(ext)s', 'chapter:%(title)s - chapters/%(section_number)02d %(section_title)s.%(ext)s']);
 
@@ -157,6 +148,16 @@ for (const vfmt of ['mp4', 'mkv']) {
 expect('WebM never embeds cover art', embeds({ mode: 'av', vfmt: 'webm' }), false);
 expect('WAV never embeds cover art', embeds({ mode: 'audio', afmt: 'wav' }), false);
 expect('WAV with tags leaves chapter markers out', build({ mode: 'audio', afmt: 'wav', tags: true }).includes('--no-embed-chapters'), true);
+
+// SponsorBlock's times are for the whole video, and yt-dlp's cut leaves a FLAC file
+// reporting its uncut length; every other format cuts cleanly.
+const sponsorFlag = (over) => valuesOf(build({ sponsor: true, ...over }), '--sponsorblock-remove');
+expect('SponsorBlock cuts sponsors, self-promotion and reminders', sponsorFlag({}), ['sponsor,selfpromo,interaction']);
+expect('SponsorBlock is off for a time range', sponsorFlag({ part: 'range', start: '1:30', end: '2:45' }), []);
+expect('SponsorBlock stays off while a time range is being typed', sponsorFlag({ part: 'range', start: '1:30', end: '0:45' }), []);
+expect('SponsorBlock is off for FLAC', sponsorFlag({ mode: 'audio', afmt: 'flac' }), []);
+expect('SponsorBlock works on WAV', sponsorFlag({ mode: 'audio', afmt: 'wav' }), ['sponsor,selfpromo,interaction']);
+expect('SponsorBlock cuts before a split into chapters', sponsorFlag({ part: 'split' }), ['sponsor,selfpromo,interaction']);
 
 // yt-dlp expands $NAME, ${NAME} and a leading ~ in the typed part of a template, and
 // the result could point outside the folder. Fields such as the title are not expanded.
